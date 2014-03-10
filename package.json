@@ -1,0 +1,44 @@
+{
+  "name": "apicatus",
+  "version": "0.0.1",
+  "description": "Apicatus api test suite",
+  "main": "app.js",
+  "homepage": "http://apicat.us",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/maggiben/apicatus.git"
+  },
+  "dependencies": {
+    "express": "~3.4",
+    "socket.io": "~0.9.16",
+    "http-proxy": "~1.0",
+    "mongoose": "~3.8",
+    "request": "~2",
+    "passport": "~0.1",
+    "passport-local": "~0.1.6",
+    "passport-local-mongoose": "~0.2",
+    "passport-github": "~0.1",
+    "jsonwebtoken": "~0.1.0",
+    "jwt-simple": "~0.1.0"
+  },
+  "devDependencies": {
+    "mocha": "~1.13.0",
+    "should": "~2.0.1",
+    "supertest": "~0.8.0",
+    "coveralls": "~2.3.0",
+    "istanbul": "~0.1.44"
+  },
+  "scripts": {
+    "test": "make test-cov"
+  },
+  "engines": {
+    "node": ">= 0.6"
+  },
+  "keywords": [
+    "api",
+    "mock",
+    "testing"
+  ],
+  "author": "Benjamin Maggi",
+  "license": "BSD"
+}
