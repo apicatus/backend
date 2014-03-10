@@ -8,7 +8,6 @@ var express = require('express'),
     AccountCtl = require('./controllers/account'),
     DigestorCtl = require('./controllers/digestor'),
     LogsCtl = require('./controllers/logs'),
-    SocketIo = require('socket.io'),
     passport = require('passport'),
     DigestCtl = require('./controllers/digest');
 
@@ -27,7 +26,7 @@ var generateMongoUrl = function(conf) {
 ////////////////////////////////////////////////////////////////////////////////
 // MongoDB Connection setup                                                   //
 ////////////////////////////////////////////////////////////////////////////////
-var init = function(options) {
+var init = function() {
     'use strict';
     if(conf.autoStart) {
         var mongoUrl = generateMongoUrl(conf.mongoUrl);
@@ -39,7 +38,6 @@ var init = function(options) {
             console.log('mongodb connected to: %s', mongoUrl);
         });
         var server = require('http').createServer(app);
-        var io = require('socket.io').listen(server);
         server.listen(conf.listenPort, conf.ip);
         console.log(conf.listenPort, conf.ip);
     }
@@ -164,18 +162,6 @@ app.get('/', function(request, response) {
 // User CRUD Methods & Servi                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 app.post('/user/signin', AccountCtl.signIn);
-app.get('/user/signout', ensureAuthenticated, function(request, response, next) {
-    'use strict';
-    response.contentType('application/json');
-    request.logout();
-    response.status(204);
-    var message = JSON.stringify({});
-    return response.send(message);
-});
-app.post('/user/forgot', function(request, response, next) {
-    'use strict';
-    var email = request.body.email;
-});
 app.post('/user', ensureAuthenticated, AccountCtl.create);
 app.get('/user', ensureAuthenticated, AccountCtl.read);
 app.put('/user', ensureAuthenticated, AccountCtl.update);

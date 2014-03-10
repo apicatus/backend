@@ -1,5 +1,5 @@
 var mongoose = require('mongoose'),
-    conf = require('../config'),
+    config = require('../config'),
     Schema = mongoose.Schema,
     passportLocalMongoose = require('passport-local-mongoose'),
     jwt = require('jwt-simple'),
@@ -11,8 +11,9 @@ var Token = new Schema({
 });
 
 Token.methods.hasExpired = function() {
+    'use strict';
     var now = new Date();
-    return (now.getTime() - this.date_created.getTime()) > conf.ttl;
+    return (now.getTime() - this.date_created.getTime()) > config.ttl;
 };
 var TokenModel = mongoose.model('Token', Token);
 
@@ -25,7 +26,6 @@ var Account = new Schema({
     city: { type: String, required: false },
     time_zone: { type: String, required: false },
     birthDate: {type: Date},
-    digestors: { type: Array, required: false },
     date_created: {type: Date, default: Date.now},
     digestors: [{ type: Schema.Types.ObjectId, ref: 'Digestor' }],
     token: {type: Object},
@@ -37,13 +37,16 @@ var Account = new Schema({
 Account.plugin(passportLocalMongoose);
 
 Account.statics.encode = function(data) {
+    'use strict';
     return jwt.encode(data, tokenSecret);
 };
 Account.statics.decode = function(data) {
+    'use strict';
     var self = this;
     return jwt.decode(data, tokenSecret);
 };
 Account.statics.verify = function(token, cb) {
+    'use strict';
     var now = new Date();
     var decoded = this.decode(token);
     if (decoded && decoded.email) {
@@ -52,7 +55,7 @@ Account.statics.verify = function(token, cb) {
                 cb(new Error(error), false);
             } else if (token === user.token.token) {
                 // Verify if token has expired
-                cb(false, (now.getTime() - user.token.date_created.getTime() < conf.ttl));
+                cb(false, (now.getTime() - user.token.date_created.getTime() < config.ttl));
             }
         });
     } else {
@@ -60,6 +63,7 @@ Account.statics.verify = function(token, cb) {
     }
 };
 Account.statics.findUser = function(email, token, cb) {
+    'use strict';
     var self = this;
     this.findOne({email: email}, function(error, user) {
         if(error || !user) {
@@ -80,6 +84,7 @@ Account.statics.findUser = function(email, token, cb) {
 };
 
 Account.statics.findUserByEmailOnly = function(email, cb) {
+    'use strict';
     var self = this;
     this.findOne({email: email}, function(err, usr) {
         if(err || !usr) {
@@ -90,6 +95,7 @@ Account.statics.findUserByEmailOnly = function(email, cb) {
     });
 };
 Account.statics.createUserToken = function(email, cb) {
+    'use strict';
     var self = this;
     this.findOne({email: email}, function(err, usr) {
         if(err || !usr) {
@@ -110,6 +116,7 @@ Account.statics.createUserToken = function(email, cb) {
 };
 
 Account.statics.generateResetToken = function(email, cb) {
+    'use strict';
     console.log("in generateResetToken....");
     this.findUserByEmailOnly(email, function(err, user) {
         if (err) {
