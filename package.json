@@ -26,7 +26,10 @@
     "should": "~2.0.1",
     "supertest": "~0.8.0",
     "coveralls": "~2.3.0",
-    "istanbul": "~0.1.44"
+    "istanbul": "~0.1.44",
+    "gulp": "^3.5.5",
+    "gulp-jshint": "^1.5.0",
+    "gulp-mocha": "^0.4.1"
   },
   "scripts": {
     "test": "make test-cov"
