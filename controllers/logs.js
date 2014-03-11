@@ -27,14 +27,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // Controllers
-var mongoose = require('mongoose')
-    , url = require('url');
+var mongoose = require('mongoose'),
+    url = require('url');
 
 // Load model
-var logs_schema = require('../models/logs')
-  , Logs = mongoose.model('Logs', logs_schema)
-  , digestor_schema = require('../models/digestor')
-  , Digestor = mongoose.model('Digestor', digestor_schema);
+var logs_schema = require('../models/logs'),
+    Logs = mongoose.model('Logs', logs_schema);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get all Digestors                                                //
@@ -49,6 +47,8 @@ var logs_schema = require('../models/logs')
 // @url GET /logs/                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 exports.read = function (request, response, next) {
+    'use strict';
+
     var queryObject = url.parse(request.url, true).query;
     console.log("find by params: ", queryObject);
     Logs.find(queryObject, onFind).limit(10);
@@ -78,7 +78,9 @@ exports.read = function (request, response, next) {
 // @url GET /logs/:id                                                        //
 ///////////////////////////////////////////////////////////////////////////////
 exports.findBy = function (request, response, next) {
-    Logger.findOne({_id: request.params._id}, onFindOne);
+    'use strict';
+
+    Logs.findOne({_id: request.params._id}, onFindOne);
 
     function onFindOne(error, log) {
         if (error) {
@@ -105,6 +107,7 @@ exports.findBy = function (request, response, next) {
 // @url POST /logs                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 exports.create = function (request, response, next) {
+    'use strict';
 
     var ip = request.headers['x-forwarded-for'] ||
         request.connection.remoteAddress ||
@@ -127,16 +130,17 @@ exports.create = function (request, response, next) {
         time: 0
     });
     function onSave(error, log) {
+        var report = null;
         if (error) {
-            var report = new Error('Error while saving log');
+            report = new Error('Error while saving log');
             report.status = 500;
             report.inner = error;
-            //return next(report);
+            return next(report);
         }
         if(!log) {
-            var report = new Error('Error could not create log');
+            report = new Error('Error could not create log');
             report.status = 404;
-            //return next(report);
+            return next(report);
         }
         //return next(log);
     }
@@ -148,7 +152,7 @@ exports.create = function (request, response, next) {
         //log.responseBody = response.statusCode;
         log.save(onSave);
         console.log("response finish: ", log.time, "ms, length", response.getHeader('Content-Length'));
-    };
+    }
     response.on('finish', logRequest);
     response.on('data', function (chunk) {
         log.responseBody += chunk;
@@ -164,12 +168,13 @@ exports.create = function (request, response, next) {
         //console.log("header: ", this);
     });
     request.on('response', function (response) {
-        //console.log("request event: ", response);
+        console.log("request event: ", response);
     });
 
     return log;
 };
 exports.create2 = function (request, response, next) {
+    'use strict';
 
     var ip = request.headers['x-forwarded-for'] ||
         request.connection.remoteAddress ||
@@ -208,7 +213,7 @@ exports.create2 = function (request, response, next) {
         log.status = response.statusCode;
         log.save(onSave);
         console.log("response finish: ", log.time, "ms");
-    };
+    }
     response.on('finish', logRequest);
     response.on('data', function (chunk) {
         log.responseBody += chunk;
@@ -228,6 +233,7 @@ exports.create2 = function (request, response, next) {
 // @url PUT /logs/:id                                                        //
 ///////////////////////////////////////////////////////////////////////////////
 exports.update = function (request, response, next) {
+    'use strict';
 
     Logs.findOneAndUpdate({_id: request.params._id}, request.body, onUpdate);
 
@@ -235,10 +241,10 @@ exports.update = function (request, response, next) {
         if (error) {
             return next(error);
         }
-        if (!account) {
+        if (!log) {
             return next(error);
         }
-        response.status(200);
+        response.statusCode = 200;
         return response.json(log);
     }
 };
@@ -256,6 +262,8 @@ exports.update = function (request, response, next) {
 // @url DELETE /logs/:id                                                     //
 ///////////////////////////////////////////////////////////////////////////////
 exports.delete = function (request, response, next) {
+    'use strict';
+
     if(request.params._id) {
         Logs.findOneAndRemove({_id: request.params._id}, onDelete);
     } else {

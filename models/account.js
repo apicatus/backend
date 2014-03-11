@@ -1,3 +1,31 @@
+///////////////////////////////////////////////////////////////////////////////
+// @file         : account.js                                                //
+// @summary      : Account schema & static helpers                           //
+// @version      : 0.1                                                       //
+// @project      : apicat.us                                                 //
+// @description  :                                                           //
+// @author       : Benjamin Maggi                                            //
+// @email        : benjaminmaggi@gmail.com                                   //
+// @date         : 6 Oct 2013                                                //
+// ------------------------------------------------------------------------- //
+//                                                                           //
+// @copyright Copyright 2014 Benjamin Maggi, all rights reserved.            //
+//                                                                           //
+//                                                                           //
+// License:                                                                  //
+// This program is free software; you can redistribute it                    //
+// and/or modify it under the terms of the GNU General Public                //
+// License as published by the Free Software Foundation;                     //
+// either version 2 of the License, or (at your option) any                  //
+// later version.                                                            //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             //
+// GNU General Public License for more details.                              //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
 var mongoose = require('mongoose'),
     config = require('../config'),
     Schema = mongoose.Schema,
@@ -42,7 +70,6 @@ Account.statics.encode = function(data) {
 };
 Account.statics.decode = function(data) {
     'use strict';
-    var self = this;
     return jwt.decode(data, tokenSecret);
 };
 Account.statics.verify = function(token, cb) {
@@ -64,7 +91,6 @@ Account.statics.verify = function(token, cb) {
 };
 Account.statics.findUser = function(email, token, cb) {
     'use strict';
-    var self = this;
     this.findOne({email: email}, function(error, user) {
         if(error || !user) {
             cb(error, null);
@@ -85,7 +111,6 @@ Account.statics.findUser = function(email, token, cb) {
 
 Account.statics.findUserByEmailOnly = function(email, cb) {
     'use strict';
-    var self = this;
     this.findOne({email: email}, function(err, usr) {
         if(err || !usr) {
             cb(err, null);

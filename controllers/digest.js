@@ -1,15 +1,6 @@
-var express = require('express'),
-    conf = require('../config'),
-    AccountMdl = require('../models/account'),
-    AccountCtl = require('../controllers/account'),
-    DigestorMdl = require('../models/digestor')
-    DigestorCtl = require('../controllers/digestor'),
+var DigestorMdl = require('../models/digestor'),
     LogsCtl = require('../controllers/logs'),
-    FileSystem = require('fs'),
-    util = require('util'),
-    vm = require('vm'),
     url = require('url'),
-    SocketIo = require('socket.io'),
     http = require('http'),
     https = require('https'),
     httpProxy = require('http-proxy');
@@ -20,6 +11,7 @@ var express = require('express'),
 // APICATUS Digestors logic                                                  //
 ///////////////////////////////////////////////////////////////////////////////
 function _escapeRegExp(str) {
+    'use strict';
     return str.replace(/[-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 }
 
@@ -30,16 +22,18 @@ function _escapeRegExp(str) {
  * @param  {string} baseUrl [description]
  * @return {Object} the regex object
  */
-function subdomainRegex(baseUrl){
+function subdomainRegex(baseUrl) {
+    'use strict';
     var regex;
 
     baseUrl = _escapeRegExp(baseUrl);
 
-    regex = new RegExp('((?!www)\\b[-\\w\\.]+)\\.' + baseUrl + '(?::)?(?:\d+)?');
+    regex = new RegExp('((?!www)\\b[-\\w\\.]+)\\.' + baseUrl + '(?::)?(?:\\d+)?');
 
     return regex;
 }
 exports.pathMatch = function(route, path) {
+    'use strict';
     var PATH_REPLACER = "([^\/]+)";
     var PATH_NAME_MATCHER = /:([\w\d]+)/g;
     var QUERY_STRING_MATCHER = /\?([^#]*)?$/;
@@ -57,7 +51,8 @@ exports.pathMatch = function(route, path) {
 };
 
 exports.digestRequest = function(request, response, next) {
-    console.log("digest")
+    'use strict';
+    console.log("digest");
     //return next();
 
     if (!request.headers.host) {

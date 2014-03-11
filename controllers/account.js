@@ -27,12 +27,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // Controllers
-var mongoose = require('mongoose')
-    , passport = require('passport');
+var mongoose = require('mongoose'),
+    passport = require('passport');
 
 // Load model
-var account_schema = require('../models/account')
-  , Account = mongoose.model('Account', account_schema);
+var account_schema = require('../models/account'),
+    Account = mongoose.model('Account', account_schema);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,6 +48,7 @@ var account_schema = require('../models/account')
 // @url GET /account/signin                                                  //
 ///////////////////////////////////////////////////////////////////////////////
 exports.signIn = function(request, response, next) {
+    'use strict';
     response.contentType('application/json');
     passport.authenticate('local', { session: false }, function(error, user, info) {
         if (error) {
@@ -91,6 +92,7 @@ exports.signIn = function(request, response, next) {
 // @url GET /account/getAccount                                              //
 ///////////////////////////////////////////////////////////////////////////////
 exports.read = function(request, response, next) {
+    'use strict';
     response.contentType('application/json');
     var incomingToken = request.headers.token;
     var decoded = Account.decode(incomingToken);
@@ -123,6 +125,7 @@ exports.read = function(request, response, next) {
 // @url GET /account/createAccount                                           //
 ///////////////////////////////////////////////////////////////////////////////
 exports.create = function(request, response, next) {
+    'use strict';
     response.contentType('application/json');
     var username = request.body.username;
     console.log(request.body);
@@ -163,6 +166,7 @@ exports.create = function(request, response, next) {
 // @url POST /account/update/:id                                             //
 ///////////////////////////////////////////////////////////////////////////////
 exports.update = function (request, response, next) {
+    'use strict';
     response.contentType('application/json');
     delete request.body._id;
     Account.findByIdAndUpdate(request.user._id, request.body, onUpdate);
@@ -193,6 +197,7 @@ exports.update = function (request, response, next) {
 // @url DELETE /users                                                        //
 ///////////////////////////////////////////////////////////////////////////////
 exports.delete = function (request, response, next) {
+    'use strict';
     response.contentType('application/json');
     Account.findByIdAndRemove(request.user._id, onDelete);
     function onDelete (error, account) {
@@ -208,6 +213,7 @@ exports.delete = function (request, response, next) {
 };
 
 exports.token = function (request, response, next) {
+    'use strict';
     response.contentType('application/json');
     passport.authenticate('local', { session: false }, function(error, user, info) {
         if (error) {

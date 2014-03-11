@@ -2,7 +2,7 @@
 // @file         : digestor.js                                               //
 // @summary      : Digestor schema                                           //
 // @version      : 0.1                                                       //
-// @project      : mia.pi                                                    //
+// @project      : apicat.us                                                 //
 // @description  :                                                           //
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
@@ -28,10 +28,6 @@
 
 var mongoose = require('mongoose'),
     Schema = mongoose.Schema;
-
-// Load Account model
-var account_schema = require('../models/account')
-  , Account = mongoose.model('Account', account_schema);
 
 var Authorizations = new Schema({
 });

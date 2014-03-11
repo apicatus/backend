@@ -8,14 +8,14 @@ var jshint = require('gulp-jshint');
 
 // Lint Task
 gulp.task('lint', function() {
-    return gulp.src(['./app.js', 'models/*.js'])
+    return gulp.src(['./app.js', 'models/*.js', 'controllers/*.js',])
         .pipe(jshint('.jshintrc'))
         .pipe(jshint.reporter('jshint-stylish'));
 });
 
 // Watch Files For Changes
 gulp.task('watch', function() {
-    gulp.watch(['app.js', 'models/*.js'], ['lint']);
+    gulp.watch(['app.js', 'models/*.js', 'controllers/*.js',], ['lint']);
     //gulp.watch(['./*.js', 'controllers/*.js', 'models/*.js', 'test/*.js'], ['lint']);
 });
 
