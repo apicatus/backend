@@ -78,6 +78,7 @@ exports.pathMatch = function(route, path) {
     }
     // replace with the path replacement
     route = new RegExp(route.replace(PATH_NAME_MATCHER, PATH_REPLACER) + "$");
+
     return path.match(route);
 };
 
@@ -179,7 +180,7 @@ exports.digestRequest = function(request, response, next) {
             // Looup endpoints
             for(var j = 0; j < endpoint.methods.length; j++) {
                 var method = endpoint.methods[j];
-                //console.log(request.method.toUpperCase(), " path: ", method.URI);
+                console.log(request.method.toUpperCase(), " route: ", method.URI, "path: ", pathname);
                 if(exports.pathMatch(method.URI, pathname)) {
                     if(request.method.toUpperCase() === method.method.toUpperCase()) {
 
@@ -189,6 +190,19 @@ exports.digestRequest = function(request, response, next) {
                         log.method = method._id;
                         if(method.proxy.enabled && method.proxy.URI) {
                             proxyRequest(method, request, response, log);
+                        } else {
+                            console.log(method.response.headers);
+                            if(method.response.headers) {
+                                method.response.headers = {
+                                    'Content-Length': method.response.message.length,
+                                    'Content-Type': 'application/json',
+                                    'X-myApi-stuff': 'get/some'
+                                };
+                                console.log(method.response.headers);
+                                response.writeHeader(method.response.statusCode, method.response.headers);
+                            }
+                            response.statusCode = method.response.statusCode;
+                            response.send(method.response.message);
                         }
                     } else {
                         response.statusCode = 404;

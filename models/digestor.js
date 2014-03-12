@@ -54,31 +54,35 @@ var Methods = new Schema({
         URI:  { type: String, required: true, trim: true },
         enabled: { type: Boolean, default: false, required: false }
     },
-    parameters: [Parameters],
-    responses: [Responses],
+    parameters: [ Parameters ],
+    response: {
+        statusCode: { type: Number, required: false, default: 200, min: 100, max: 600},
+        headers: { type: Object, required: false },
+        message: { type: String, required: false }
+    },
     authorizations: [Authorizations]
 });
 var Endpoints = new Schema({
     name: { type: String, required: true, trim: true },
     synopsis: { type: String, required: false },
-    methods: [Methods]
+    methods: [ Methods ]
 });
 var Digestor = new Schema({
     name: { type: String, required: true, trim: true },
     type: { type: String, required: false, default: "REST" },
-    version: {type: String, required: false},
-    domain: {type: String, required: false},
+    version: { type: String, required: false },
+    domain: { type: String, required: false },
     protocol: { type: String, required: false, default: "http" },
-    baseURL: {type: String, required: false},
-    allowCrossDomain: {type: Boolean, default: false, required: false},
-    logging: {type: Boolean, default: false, required: false},
+    baseURL: { type: String, required: false },
+    allowCrossDomain: { type: Boolean, default: false, required: false },
+    logging: { type: Boolean, default: false, required: false },
     created: { type: Date, default: Date.now },
     lastUpdate: { type: Date, default: Date.now },
     lastAccess: { type: Date, default: Date.now },
     enabled: { type: Boolean, default: true, required: false },
-    public: {type: Boolean, default: true, required: false},
-    endpoints: [Endpoints],
-    hits: {type: Number, default: 0, required: false},
+    public: { type: Boolean, default: true, required: false },
+    endpoints: [ Endpoints ],
+    hits: { type: Number, default: 0, required: false },
     owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }]
 });
 
