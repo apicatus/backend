@@ -103,7 +103,7 @@ app.configure(function() {
     app.use(app.router);
     app.use(DigestCtl.digestRequest);
     //app.use(express.vhost('*.miapi.com', require('./test/test').test));
-    app.use(express.static(__dirname + conf.staticPath));
+    app.use(express.static(conf.staticPath));
 });
 
 app.configure('development', function() {
@@ -134,7 +134,7 @@ passport.deserializeUser(AccountMdl.deserializeUser());
 ///////////////////////////////////////////////////////////////////////////////
 // Collections
 app.post('/digestors', DigestorCtl.create);
-app.get('/digestors', ensureAuthenticated, DigestorCtl.readAll);
+app.get('/digestors', ensureAuthenticated, DigestorCtl.read);
 //app.put('/digestors', DigestorCtl.updateAll);
 app.delete('/digestors', DigestorCtl.deleteAll);
 // Entities
@@ -156,7 +156,7 @@ app.delete('/logs/:id', LogsCtl.delete);
 ///////////////////////////////////////////////////////////////////////////////
 app.get('/', function(request, response) {
     'use strict';
-    response.sendfile(__dirname + '/frontend/build/index.html');
+    response.sendfile(conf.staticPath + '/index.html');
 });
 ///////////////////////////////////////////////////////////////////////////////
 // User CRUD Methods & Servi                                                 //

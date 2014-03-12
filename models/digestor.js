@@ -42,10 +42,6 @@ var Parameters = new Schema({
     default: { type: String, required: true, trim: true },
     type: { type: String, required: true, trim: true }
 });
-var Proxy = new Schema({
-    URI:  { type: String, required: true, trim: true },
-    enabled: { type: Boolean, default: false, required: false }
-});
 var Methods = new Schema({
     name: { type: String, required: true, trim: true },
     nickname: { type: String, required: false, trim: true },
@@ -54,7 +50,10 @@ var Methods = new Schema({
     consumes: { type: String, required: false },
     produces: { type: String, required: false },
     method: { type: String, required: true, trim: true },
-    proxy: [Proxy],
+    proxy: {
+        URI:  { type: String, required: true, trim: true },
+        enabled: { type: Boolean, default: false, required: false }
+    },
     parameters: [Parameters],
     responses: [Responses],
     authorizations: [Authorizations]
@@ -77,6 +76,7 @@ var Digestor = new Schema({
     lastUpdate: { type: Date, default: Date.now },
     lastAccess: { type: Date, default: Date.now },
     enabled: { type: Boolean, default: true, required: false },
+    public: {type: Boolean, default: true, required: false},
     endpoints: [Endpoints],
     hits: {type: Number, default: 0, required: false},
     owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }]

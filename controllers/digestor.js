@@ -27,7 +27,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // Controllers
-var mongoose = require('mongoose');
+var mongoose = require('mongoose'),
+    url = require('url');
 
 // Load model
 var digestor_schema = require('../models/digestor'),
@@ -47,26 +48,54 @@ var account_schema = require('../models/account'),
 //                                                                           //
 // @api public                                                               //
 //                                                                           //
-// @url GET /digestor/getall                                                 //
+// @url GET /digestor                                                        //
 ///////////////////////////////////////////////////////////////////////////////
-exports.readAll = function (request, response, next) {
+
+/*
+    TODO:
+        * Make simple API call handle both [/digestors and /digestors/:id]
+        * Dont allow private API search
+*/
+exports.read = function (request, response, next) {
     'use strict';
 
-    response.contentType('application/json');
-    Digestor.find(gotDigestors).limit(10);
-
-    function gotDigestors(err, digestors) {
-        if (err) {
-            console.log(err);
+    var token = request.headers.token;
+    var defaults = {
+        skip : 0,
+        limit : 0
+    };
+    var query = url.parse(request.url, true).query;
+    // Remove defauls from query object
+    for(var key in defaults) {
+        if(defaults.hasOwnProperty(key)) {
+            defaults[key] = parseInt(query[key], 10);
+            delete query[key];
+        }
+    }
+    Account.findUserByToken(token, gotUser);
+    function gotUser(error, user) {
+        if (error) {
+            response.statusCode = 500;
             return next();
         }
-        if(!digestors) {
-            response.statusCode = 404;
-            var errJSON = JSON.stringify({"title": "error", "message":"Not Found", "status":"fail"});
-            return response.send(errJSON);
-        }
-        var digestorsJSON = JSON.stringify(digestors);
-        return response.send(digestorsJSON);
+        console.log("valid user", user.username);
+        query.owners = user._id;
+        Digestor
+        .find({$or: [query, {public: true}]}) //
+        .limit(defaults.limit)
+        .skip(defaults.skip)
+        .exec(function(error, digestors) {
+            if (error) {
+                response.statusCode = 500;
+                return next();
+            }
+            if(!digestors) {
+                response.statusCode = 404;
+                var errJSON = JSON.stringify({"title": "error", "message": "Not Found", "status": "fail"});
+                return response.json(errJSON);
+            }
+            return response.json(digestors);
+        });
     }
 };
 
@@ -80,28 +109,35 @@ exports.readAll = function (request, response, next) {
 //                                                                           //
 // @api public                                                               //
 //                                                                           //
-// @url GET /digestor/getbyid                                                //
+// @url GET /digestor/:id                                                    //
 ///////////////////////////////////////////////////////////////////////////////
 exports.readOne = function (request, response, next) {
     'use strict';
+    var token = request.headers.token;
 
-    response.contentType('application/json');
-    Digestor.findOne({name: request.params.name}, onRead);
-
-    function onRead(err, digestor) {
-        if (err) {
-            return next(err);
+    Account.findUserByToken(token, gotUser);
+    function gotUser(error, user) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
         }
-        if(!digestor) {
-            response.statusCode = 404;
-            var errJSON = JSON.stringify({"title": "error", "message":"Not Found","status":"fail"});
-            return response.send(errJSON);
-        }
-        var digestorJSON = JSON.stringify(digestor);
-        return response.send(digestorJSON);
+        console.log("valid user", user.username, user._id);
+        Digestor
+        .findOne({$and: [{name: request.params.name}, {owners: user._id}]}) //
+        .exec(function(error, digestor) {
+            if (error) {
+                response.statusCode = 500;
+                return next();
+            }
+            if(!digestor) {
+                response.statusCode = 404;
+                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+            }
+            console.log("found digestor: ", digestor.name);
+            return response.json(digestor);
+        });
     }
 };
-
 ///////////////////////////////////////////////////////////////////////////////
 // Route to add a Digestor                                                   //
 //                                                                           //

@@ -49,12 +49,25 @@ var logs_schema = require('../models/logs'),
 exports.read = function (request, response, next) {
     'use strict';
 
-    var queryObject = url.parse(request.url, true).query;
-    console.log("find by params: ", queryObject);
-    Logs.find(queryObject, onFind).limit(10);
-
-    function onFind(error, logs) {
+    var defaults = {
+        skip : 0,
+        limit : 0
+    };
+    var query = url.parse(request.url, true).query;
+    // Remove defauls from query object
+    for(var key in defaults) {
+        if(defaults.hasOwnProperty(key)) {
+            defaults[key] = parseInt(query[key], 10);
+            delete query[key];
+        }
+    }
+    Logs
+    .find(query)
+    .limit(defaults.limit)
+    .skip(defaults.skip)
+    .exec(function(error, logs) {
         if (error) {
+            response.statusCode = 500;
             return next();
         }
         if(!logs) {
@@ -62,7 +75,7 @@ exports.read = function (request, response, next) {
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
         return response.json(logs);
-    }
+    });
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -132,10 +145,7 @@ exports.create = function (request, response, next) {
     function onSave(error, log) {
         var report = null;
         if (error) {
-            report = new Error('Error while saving log');
-            report.status = 500;
-            report.inner = error;
-            return next(report);
+            return next(error);
         }
         if(!log) {
             report = new Error('Error could not create log');
@@ -167,10 +177,6 @@ exports.create = function (request, response, next) {
     response.on('header', function() {
         //console.log("header: ", this);
     });
-    request.on('response', function (response) {
-        console.log("request event: ", response);
-    });
-
     return log;
 };
 exports.create2 = function (request, response, next) {
@@ -242,9 +248,10 @@ exports.update = function (request, response, next) {
             return next(error);
         }
         if (!log) {
-            return next(error);
+            response.statusCode = 500;
+            return response.json({"title": "error", "message": "could not update", "status": "fail"});
         }
-        response.statusCode = 200;
+        response.status(200);
         return response.json(log);
     }
 };
@@ -278,5 +285,3 @@ exports.delete = function (request, response, next) {
         return response.json({action: 'delete', result: true});
     }
 };
-
-

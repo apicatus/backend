@@ -31,7 +31,7 @@ var mongoose = require('mongoose'),
 
 var Logs = new Schema({
     ip: { type: String, required: true, trim: true },
-    query: {type: Object},
+    query: {type: Object}, // REPLACE WITH URL
     requestHeaders: {type: Object},
     requestBody: {type: Object},
     responseHeaders: {type: Object},

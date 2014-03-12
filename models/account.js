@@ -66,14 +66,17 @@ Account.plugin(passportLocalMongoose);
 
 Account.statics.encode = function(data) {
     'use strict';
+
     return jwt.encode(data, tokenSecret);
 };
 Account.statics.decode = function(data) {
     'use strict';
+
     return jwt.decode(data, tokenSecret);
 };
 Account.statics.verify = function(token, cb) {
     'use strict';
+
     var now = new Date();
     var decoded = this.decode(token);
     if (decoded && decoded.email) {
@@ -91,11 +94,13 @@ Account.statics.verify = function(token, cb) {
 };
 Account.statics.findUser = function(email, token, cb) {
     'use strict';
+
     this.findOne({email: email}, function(error, user) {
         if(error || !user) {
             cb(error, null);
         } else if (token === user.token.token) {
             cb(false, {
+                 _id: user._id,
                 email: user.email,
                 token: user.token,
                 date_created: user.date_created,
@@ -108,9 +113,16 @@ Account.statics.findUser = function(email, token, cb) {
         }
     });
 };
+Account.statics.findUserByToken = function(token, cb) {
+    'use strict';
 
+    var self = this;
+    var decoded = self.decode(token);
+    self.findUser(decoded.email, token, cb);
+};
 Account.statics.findUserByEmailOnly = function(email, cb) {
     'use strict';
+
     this.findOne({email: email}, function(err, usr) {
         if(err || !usr) {
             cb(err, null);
@@ -121,6 +133,7 @@ Account.statics.findUserByEmailOnly = function(email, cb) {
 };
 Account.statics.createUserToken = function(email, cb) {
     'use strict';
+
     var self = this;
     this.findOne({email: email}, function(err, usr) {
         if(err || !usr) {
@@ -142,6 +155,7 @@ Account.statics.createUserToken = function(email, cb) {
 
 Account.statics.generateResetToken = function(email, cb) {
     'use strict';
+
     console.log("in generateResetToken....");
     this.findUserByEmailOnly(email, function(err, user) {
         if (err) {
