@@ -162,7 +162,7 @@ app.get('/', function(request, response) {
 // User CRUD Methods & Servi                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 app.post('/user/signin', AccountCtl.signIn);
-app.post('/user', ensureAuthenticated, AccountCtl.create);
+app.post('/user', AccountCtl.create);
 app.get('/user', ensureAuthenticated, AccountCtl.read);
 app.put('/user', ensureAuthenticated, AccountCtl.update);
 app.del('/user', ensureAuthenticated, AccountCtl.delete);

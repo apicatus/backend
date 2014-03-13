@@ -48,7 +48,6 @@ var Methods = new Schema({
     synopsis: { type: String, required: false },
     URI: { type: String, required: true, trim: true },
     consumes: { type: String, required: false },
-    produces: { type: String, required: false },
     method: { type: String, required: true, trim: true },
     proxy: {
         URI:  { type: String, required: true, trim: true },
@@ -58,7 +57,8 @@ var Methods = new Schema({
     response: {
         statusCode: { type: Number, required: false, default: 200, min: 100, max: 600},
         headers: { type: Object, required: false },
-        message: { type: String, required: false }
+        message: { type: String, required: false },
+        contentType: { type: String, required: false }
     },
     authorizations: [Authorizations]
 });

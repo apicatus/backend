@@ -128,8 +128,10 @@ exports.digestRequest = function(request, response, next) {
     });
 
     var proxyRequest = function(method, request, response, log) {
+
         request.pause();
         var proxyUrlParts = url.parse(method.proxy.URI, true, true);
+
         var options = {
             host: proxyUrlParts.hostname,
             port: proxyUrlParts.port | 80,
@@ -137,6 +139,7 @@ exports.digestRequest = function(request, response, next) {
             method: method.method.toUpperCase(),
             headers: request.headers
         };
+
         var protocol = null;
         if(proxyUrlParts.protocol.match("https")) {
             protocol = https;
@@ -183,11 +186,12 @@ exports.digestRequest = function(request, response, next) {
                 console.log(request.method.toUpperCase(), " route: ", method.URI, "path: ", pathname);
                 if(exports.pathMatch(method.URI, pathname)) {
                     if(request.method.toUpperCase() === method.method.toUpperCase()) {
-
                         //console.log("route: ", method.URI, " path: ", pathname, " match: ", exports.pathMatch(method.URI, pathname));
+                        // Create Log
                         var log = LogsCtl.create(request, response, next);
                         log.digestor = digestor._id;
                         log.method = method._id;
+                        // If proxy is enabled and valid then pipe request
                         if(method.proxy.enabled && method.proxy.URI) {
                             proxyRequest(method, request, response, log);
                         } else {
@@ -195,12 +199,13 @@ exports.digestRequest = function(request, response, next) {
                             if(method.response.headers) {
                                 method.response.headers = {
                                     'Content-Length': method.response.message.length,
-                                    'Content-Type': 'application/json',
+                                    'Content-Type': method.response.contentType | 'text/plain',
                                     'X-myApi-stuff': 'get/some'
                                 };
                                 console.log(method.response.headers);
                                 response.writeHeader(method.response.statusCode, method.response.headers);
                             }
+                            response.setHeader('content-type', method.response.contentType | 'text/plain');
                             response.statusCode = method.response.statusCode;
                             response.send(method.response.message);
                         }

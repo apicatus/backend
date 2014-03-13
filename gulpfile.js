@@ -12,7 +12,11 @@ gulp.task('lint', function() {
         .pipe(jshint('.jshintrc'))
         .pipe(jshint.reporter('jshint-stylish'));
 });
-
+// Mocha Task
+gulp.task('mocha', function() {
+    return gulp.src(['test/*.js'])
+        .pipe(mocha({ reporter: 'nyan', timeout: 2000 }));
+});
 // Watch Files For Changes
 gulp.task('watch', function() {
     gulp.watch(['app.js', 'models/*.js', 'controllers/*.js',], ['lint']);
@@ -20,4 +24,4 @@ gulp.task('watch', function() {
 });
 
 // Default Task
-gulp.task('default', ['lint', 'watch']);
+gulp.task('default', ['lint', 'mocha', 'watch']);

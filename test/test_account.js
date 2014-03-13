@@ -74,7 +74,8 @@ describe('Apicatus test suite', function () {
                 var url = 'http://' + conf.ip + ':' + conf.listenPort;
                 var profile = {
                     username: 'admin',
-                    password: 'admin'
+                    password: 'admin',
+                    email: 'admin@admin.com'
                 };
                 request(url)
                     .post('/user')
