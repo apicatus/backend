@@ -17,7 +17,7 @@ var environments = {
         autoStart: true,
         ttl: (1000 * 60 * 100), // 10 minutes
         resetTokenExpiresMinutes: 20,
-        staticPath: "/frontend/build",
+        staticPath: "/Users/benjius/Desktop/proectos/apicatus/frontend/build",
         mongoUrl: {
             hostname: "paulo.mongohq.com",
             port: 10026,
