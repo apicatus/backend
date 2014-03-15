@@ -106,6 +106,7 @@ Account.statics.findUser = function(email, token, cb) {
                 date_created: user.date_created,
                 full_name: user.full_name,
                 username: user.username,
+                avatar: user.avatar,
                 digestors: user.digestors
             });
         } else {
