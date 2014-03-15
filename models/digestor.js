@@ -2,7 +2,7 @@
 // @file         : digestor.js                                               //
 // @summary      : Digestor schema                                           //
 // @version      : 0.1                                                       //
-// @project      : mia.pi                                                    //
+// @project      : apicat.us                                                 //
 // @description  :                                                           //
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
@@ -29,10 +29,6 @@
 var mongoose = require('mongoose'),
     Schema = mongoose.Schema;
 
-// Load Account model
-var account_schema = require('../models/account')
-  , Account = mongoose.model('Account', account_schema);
-
 var Authorizations = new Schema({
 });
 var Responses = new Schema({
@@ -46,43 +42,47 @@ var Parameters = new Schema({
     default: { type: String, required: true, trim: true },
     type: { type: String, required: true, trim: true }
 });
-var Proxy = new Schema({
-    URI:  { type: String, required: true, trim: true },
-    enabled: { type: Boolean, default: false, required: false }
-});
 var Methods = new Schema({
     name: { type: String, required: true, trim: true },
     nickname: { type: String, required: false, trim: true },
     synopsis: { type: String, required: false },
     URI: { type: String, required: true, trim: true },
     consumes: { type: String, required: false },
-    produces: { type: String, required: false },
     method: { type: String, required: true, trim: true },
-    proxy: [Proxy],
-    parameters: [Parameters],
-    responses: [Responses],
+    proxy: {
+        URI:  { type: String, required: true, trim: true },
+        enabled: { type: Boolean, default: false, required: false }
+    },
+    parameters: [ Parameters ],
+    response: {
+        statusCode: { type: Number, required: false, default: 200, min: 100, max: 600},
+        headers: { type: Object, required: false },
+        message: { type: String, required: false },
+        contentType: { type: String, required: false }
+    },
     authorizations: [Authorizations]
 });
 var Endpoints = new Schema({
     name: { type: String, required: true, trim: true },
     synopsis: { type: String, required: false },
-    methods: [Methods]
+    methods: [ Methods ]
 });
 var Digestor = new Schema({
     name: { type: String, required: true, trim: true },
     type: { type: String, required: false, default: "REST" },
-    version: {type: String, required: false},
-    domain: {type: String, required: false},
+    version: { type: String, required: false },
+    domain: { type: String, required: false },
     protocol: { type: String, required: false, default: "http" },
-    baseURL: {type: String, required: false},
-    allowCrossDomain: {type: Boolean, default: false, required: false},
-    logging: {type: Boolean, default: false, required: false},
+    baseURL: { type: String, required: false },
+    allowCrossDomain: { type: Boolean, default: false, required: false },
+    logging: { type: Boolean, default: false, required: false },
     created: { type: Date, default: Date.now },
     lastUpdate: { type: Date, default: Date.now },
     lastAccess: { type: Date, default: Date.now },
     enabled: { type: Boolean, default: true, required: false },
-    endpoints: [Endpoints],
-    hits: {type: Number, default: 0, required: false},
+    public: { type: Boolean, default: true, required: false },
+    endpoints: [ Endpoints ],
+    hits: { type: Number, default: 0, required: false },
     owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }]
 });
 

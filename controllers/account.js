@@ -27,12 +27,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // Controllers
-var mongoose = require('mongoose')
-    , passport = require('passport');
+var mongoose = require('mongoose'),
+    passport = require('passport');
 
 // Load model
-var account_schema = require('../models/account')
-  , Account = mongoose.model('Account', account_schema);
+var account_schema = require('../models/account'),
+    Account = mongoose.model('Account', account_schema);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,33 +48,25 @@ var account_schema = require('../models/account')
 // @url GET /account/signin                                                  //
 ///////////////////////////////////////////////////////////////////////////////
 exports.signIn = function(request, response, next) {
-    response.contentType('application/json');
-    passport.authenticate('local', { session: false }, function(error, user, info) {
+    'use strict';
+    passport.authenticate('local', { session: false }, function(error, user) {
         if (error) {
-            response.status(503);
-            return next(err);
+            response.statusCode = 500;
+            return next(error);
         }
         if (user) {
-            Account.createUserToken(user.email, function(error, usersToken) {
-                if (error) {
-                    response.send({error: 'Issue generating token'});
+            Account.createUserToken(user.email, function(error, token) {
+                if (error || !token) {
+                    response.statusCode = 500;
+                    response.json({error: 'Issue generating token'});
                 } else {
-
-                    response.send(user);
+                    response.json(user);
                 }
             });
         } else {
-            response.status(401);
-            return response.send({error: 'unauthorized'});
+            response.statusCode = 401;
+            return response.json({error: 'unauthorized'});
         }
-        /*request.logIn(user, function(err) {
-            if (err) {
-                response.status(503);
-                return next(err);
-            }
-            // User has authenticated
-            return response.send(JSON.stringify({username: request.user.username}));
-        });*/
     })(request, response, next);
 };
 
@@ -91,21 +83,22 @@ exports.signIn = function(request, response, next) {
 // @url GET /account/getAccount                                              //
 ///////////////////////////////////////////////////////////////////////////////
 exports.read = function(request, response, next) {
+    'use strict';
     response.contentType('application/json');
     var incomingToken = request.headers.token;
     var decoded = Account.decode(incomingToken);
 
     if (decoded && decoded.email) {
         Account.findUser(decoded.email, incomingToken, function(error, user) {
-            if (error) {
-                response.status(404);
-                response.json({error: 'Issue finding user.'});
+            if (error || !user) {
+                response.statusCode = 500;
+                return next(error);
             } else {
                 return response.json(user);
             }
         });
     } else {
-        response.status(500);
+        response.statusCode = 500;
         response.json({error: 'Issue decoding incoming token.'});
     }
 };
@@ -123,28 +116,31 @@ exports.read = function(request, response, next) {
 // @url GET /account/createAccount                                           //
 ///////////////////////////////////////////////////////////////////////////////
 exports.create = function(request, response, next) {
+    'use strict';
     response.contentType('application/json');
     var username = request.body.username;
     console.log(request.body);
-    Account.findOne({username: username}, function(error, existingUser) {
-        if (error || existingUser) {
-            response.status(409);
-            var message = JSON.stringify({error: "existingUser", message: 'User already exists'});
-            return response.send(message);
+    Account.findOne({username: username}, function(error, user) {
+        if (error) {
+            response.statusCode = 500;
+            return next(error);
+        } else if (user) {
+            response.statusCode = 409;
+            return response.json({error: "existingUser", message: 'User already exists'});
         }
         var account = new Account({ username : request.body.username, email: request.body.email});
         account.setPassword(request.body.password, function(error) {
             if (error) {
-                return response.render('signup', { account : account });
+                response.statusCode = 500;
+                return next(error);
             }
-            account.save(function(error) {
-                if (error) {
-                    var message = JSON.stringify({error: "faultSave", message: 'Cannot save user'});
-                    return response.send(message);
+            account.save(function(error, account) {
+                if (error || !account) {
+                    response.statusCode = 500;
+                    return response.json({error: "faultSave", message: 'Cannot save user'});
                 }
-                response.status(201);
-                var message = JSON.stringify(account);
-                return response.send(message);
+                response.statusCode = 201;
+                return response.json(account);
             });
         });
     });
@@ -163,12 +159,14 @@ exports.create = function(request, response, next) {
 // @url POST /account/update/:id                                             //
 ///////////////////////////////////////////////////////////////////////////////
 exports.update = function (request, response, next) {
+    'use strict';
     response.contentType('application/json');
     delete request.body._id;
     Account.findByIdAndUpdate(request.user._id, request.body, onUpdate);
 
     function onUpdate (error, account) {
         if (error) {
+            response.statusCode = 500;
             return next(error);
         }
         if (!account) {
@@ -193,38 +191,40 @@ exports.update = function (request, response, next) {
 // @url DELETE /users                                                        //
 ///////////////////////////////////////////////////////////////////////////////
 exports.delete = function (request, response, next) {
-    response.contentType('application/json');
+    'use strict';
+
     Account.findByIdAndRemove(request.user._id, onDelete);
-    function onDelete (error, account) {
+    function onDelete (error) {
         if (error) {
+            response.statusCode = 500;
             return next(error);
         }
-        request.logout();
         // The request was processed successfully, but no response body is needed.
-        response.status(204);
-        var message = JSON.stringify({});
-        return response.send(message);
+        response.statusCode = 204;
+        return response.json({});
     }
 };
 
 exports.token = function (request, response, next) {
-    response.contentType('application/json');
-    passport.authenticate('local', { session: false }, function(error, user, info) {
+    'use strict';
+
+    passport.authenticate('local', { session: false }, function(error, user) {
         if (error) {
-            response.status(503);
-            return next(err);
+            response.statusCode = 500;
+            return next(error);
         }
         if (user) {
-            Account.createUserToken(request.user.email, function(error, usersToken) {
-                if (error) {
-                    response.send({error: 'Issue generating token'});
+            Account.createUserToken(request.user.email, function(error, token) {
+                if (error || !token) {
+                    response.statusCode = 500;
+                    response.json({error: 'Issue generating token'});
                 } else {
-                    response.send({token : usersToken});
+                    response.json({token : token});
                 }
             });
         } else {
-            response.status(401);
-            return response.send({error: 'unauthorized'});
+            response.statusCode = 401;
+            return response.json({error: 'unauthorized'});
         }
     })(request, response, next);
 };
