@@ -81,7 +81,8 @@ Account.statics.verify = function(token, cb) {
     var decoded = this.decode(token);
     if (decoded && decoded.email) {
         this.findOne({email: decoded.email}, function(error, user) {
-            if (error || !user) {
+            if (error || !user || !user.token) {
+                console.log("error");
                 cb(new Error(error), false);
             } else if (token === user.token.token) {
                 // Verify if token has expired

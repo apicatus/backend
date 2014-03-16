@@ -124,7 +124,7 @@ exports.digestRequest = function(request, response, next) {
             response.status(404);
             return response.json({ error: "digestor not found" });
         }
-        digest(digestor);
+        digest(digestor, pathname, request.method);
     });
 
     var proxyRequest = function(method, request, response, log) {
@@ -176,7 +176,48 @@ exports.digestRequest = function(request, response, next) {
         request.pipe(pipeRequest);
         request.resume();
     };
-    var digest = function(digestor) {
+    var getMethodByRoute = function(digestor, route, httpMethod) {
+        var method = null;
+        for(var i = 0; i < digestor.endpoints.length; i++) {
+            method = filterMethods(digestor.endpoints[i], route, httpMethod);
+            if(method) {
+                break;
+            }
+        }
+        function filterMethods(method, route, httpMethod) {
+            return digestor.endpoints[i].methods.filter(function(method){
+                return (exports.pathMatch(method.URI, route) && httpMethod.toUpperCase() === method.method.toUpperCase());
+            });
+        }
+        return method[0];
+    };
+    var digest = function(digestor, route, httpMethod) {
+        var method = getMethodByRoute(digestor, route, httpMethod);
+        if(method) {
+            // Create Log
+            var log = LogsCtl.create(request, response, next);
+            log.digestor = digestor._id;
+            log.method = method._id;
+            // If proxy is enabled and valid then pipe request
+            if(method.proxy && method.proxy.enabled && method.proxy.URI) {
+                proxyRequest(method, request, response, log);
+            } else {
+                if(method.response.headers && method.response.headers.length > 0) {
+                    method.response.headers.forEach(function(header){
+                        console.log("header", header);
+                        response.setHeader(header.name, header.value);
+                    });
+                }
+                response.setHeader('content-type', method.response.contentType | 'text/plain');
+                response.statusCode = method.response.statusCode;
+                response.send(method.response.message);
+            }
+        } else {
+            response.statusCode = 404;
+            return next();
+        }
+    };
+    var digest2 = function(digestor) {
         // Lookup digestors
         for(var i = 0; i < digestor.endpoints.length; i++) {
             var endpoint = digestor.endpoints[i];
@@ -196,15 +237,14 @@ exports.digestRequest = function(request, response, next) {
                             proxyRequest(method, request, response, log);
                         } else {
                             console.log(method.response.headers);
-                            if(method.response.headers) {
-                                method.response.headers = {
-                                    'Content-Length': method.response.message.length,
-                                    'Content-Type': method.response.contentType | 'text/plain',
-                                    'X-myApi-stuff': 'get/some'
-                                };
+                            if(method.response.headers.length.length > 0) {
+                                //method.response.headers.forEach(function(header, index){
+
+                                //});
                                 console.log(method.response.headers);
-                                response.writeHeader(method.response.statusCode, method.response.headers);
+                                //response.writeHeader(method.response.statusCode, method.response.headers);
                             }
+                            response.setHeader('xxx-appleid', 123);
                             response.setHeader('content-type', method.response.contentType | 'text/plain');
                             response.statusCode = method.response.statusCode;
                             response.send(method.response.message);
