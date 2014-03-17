@@ -9,13 +9,18 @@ var express = require('express'),
     DigestorCtl = require('./controllers/digestor'),
     LogsCtl = require('./controllers/logs'),
     passport = require('passport'),
-    DigestCtl = require('./controllers/digest');
+    DigestCtl = require('./controllers/digest'),
+    Importer = require('./controllers/importer');
 
+
+var GITHUB_CLIENT_ID = conf.oAuthServices.github.clientId;
+var GITHUB_CLIENT_SECRET = conf.oAuthServices.github.clientSecret;
 ////////////////////////////////////////////////////////////////////////////////
 // Mongo URL generator                                                        //
 ////////////////////////////////////////////////////////////////////////////////
 var generateMongoUrl = function(conf) {
     'use strict';
+
     if(conf.username && conf.password) {
         return 'mongodb://' + conf.username + ':' + conf.password + '@' + conf.hostname + ':' + conf.port + '/' + conf.db;
     }
@@ -28,6 +33,7 @@ var generateMongoUrl = function(conf) {
 ////////////////////////////////////////////////////////////////////////////////
 var init = function() {
     'use strict';
+
     if(conf.autoStart) {
         var mongoUrl = generateMongoUrl(conf.mongoUrl);
         console.log('mongodb connet to', mongoUrl);
@@ -53,6 +59,7 @@ var app = express();
 ///////////////////////////////////////////////////////////////////////////////
 var allowCrossDomain = function(request, response, next) {
     'use strict';
+
     response.header('Access-Control-Allow-Origin', '*');
     response.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, X-Level3-Digest-Time, Content-Type, Authorization, Accept');
     response.header('Access-Control-Allow-Methods', 'OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, CONNECT');
@@ -68,6 +75,7 @@ var allowCrossDomain = function(request, response, next) {
 // reusable middleware to test authenticated sessions
 function ensureAuthenticated(request, response, next) {
     'use strict';
+
     response.contentType('application/json');
     var token = request.headers.token;
 
@@ -91,12 +99,13 @@ function ensureAuthenticated(request, response, next) {
 ///////////////////////////////////////////////////////////////////////////////
 app.configure(function() {
     'use strict';
+
     app.set('view engine', 'html');
     app.set('views', __dirname + '/views');
     app.use(express.bodyParser());
     app.use(express.methodOverride());
-    app.use(express.cookieParser());
-    app.use(express.session({ secret: conf.sessionSecret }));
+    /* app.use(express.cookieParser()); */
+    /* app.use(express.session({ secret: conf.sessionSecret })); */
     app.use(passport.initialize());
     app.use(passport.session());
     app.use(allowCrossDomain);
@@ -108,26 +117,20 @@ app.configure(function() {
 
 app.configure('development', function() {
     'use strict';
+
     app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
     app.use(express.logger());
 });
 app.configure('testing', function() {
     'use strict';
+
     app.use(express.errorHandler());
 });
 app.configure('production', function() {
     'use strict';
+
     app.use(express.errorHandler());
 });
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// passport setup & strategy                                                 //
-///////////////////////////////////////////////////////////////////////////////
-passport.use(AccountMdl.createStrategy());
-passport.serializeUser(AccountMdl.serializeUser());
-passport.deserializeUser(AccountMdl.deserializeUser());
 
 ///////////////////////////////////////////////////////////////////////////////
 // Digestors Resource Management                                             //
@@ -168,6 +171,35 @@ app.put('/user', ensureAuthenticated, AccountCtl.update);
 app.del('/user', ensureAuthenticated, AccountCtl.delete);
 app.post('/token', ensureAuthenticated, AccountCtl.token);
 
+// GET /auth/github
+//   Use passport.authenticate() as route middleware to authenticate the
+//   request.  The first step in GitHub authentication will involve redirecting
+//   the user to github.com.  After authorization, GitHubwill redirect the user
+//   back to this application at /auth/github/callback
+
+app.get('/auth/github', AccountCtl.githubAuth);
+app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
+//app.get('/auth/github', passport.authenticate('github'), function(request, response) {
+//    'use strict';
+    // The request will be redirected to GitHub for authentication, so this
+    // function will not be called.
+//});
+
+// GET /auth/github/callback
+//   Use passport.authenticate() as route middleware to authenticate the
+//   request.  If authentication fails, the user will be redirected back to the
+//   login page.  Otherwise, the primary route function function will be called,
+//   which, in this example, will redirect the user to the home page.
+//app.get('/auth/github/callback', passport.authenticate('github', { session: false }), function(request, response) {
+//    'use strict';
+
+//    response.json(request.user);
+//});
+//app.get('/auth/github/callback', AccountCtl.githubCallback);
+///////////////////////////////////////////////////////////////////////////////
+// API Model Importer service                                                //
+///////////////////////////////////////////////////////////////////////////////
+app.post('/importer/blueprint', ensureAuthenticated, Importer.blueprint);
 ///////////////////////////////////////////////////////////////////////////////
 // socket.io                                                                 //
 ///////////////////////////////////////////////////////////////////////////////

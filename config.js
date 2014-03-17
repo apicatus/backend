@@ -9,6 +9,12 @@ var environments = {
     ///////////////////////////////////////////////////////////////////////////
     "development": {
         sessionSecret: "secret",
+        oAuthServices: {
+            github: {
+                clientId: "1b147fb22f603248b539",
+                clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+            }
+        },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
         ip: process.env.IP || '127.0.0.1',
@@ -33,6 +39,12 @@ var environments = {
     ///////////////////////////////////////////////////////////////////////////
     "test": {
         sessionSecret: "secret",
+        oAuthServices: {
+            github: {
+                clientId: "1b147fb22f603248b539",
+                clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+            }
+        },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
         ip: process.env.IP || os.hostname(),
@@ -56,6 +68,12 @@ var environments = {
     ///////////////////////////////////////////////////////////////////////////
     production: {
         sessionSecret: process.env.SECRET,
+        oAuthServices: {
+            github: {
+                clientId: "1b147fb22f603248b539",
+                clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+            }
+        },
         environment: process.env.NODE_ENV,
         listenPort: 80,
         ip: process.env.IP || '107.170.71.230',

@@ -40,6 +40,7 @@ var Token = new Schema({
 
 Token.methods.hasExpired = function() {
     'use strict';
+
     var now = new Date();
     return (now.getTime() - this.date_created.getTime()) > config.ttl;
 };
@@ -47,22 +48,69 @@ var TokenModel = mongoose.model('Token', Token);
 
 var Account = new Schema({
     username: { type: String, required: true},
-    name: { type: String, required: false },
-    last_name: { type: String, required: false },
     email: { type: String, required: true },
+    name: { type: String, required: false },
+    lastName: { type: String, required: false },
     country: { type: String, required: false },
     city: { type: String, required: false },
-    time_zone: { type: String, required: false },
+    timeZone: { type: String, required: false },
+    avatar: { type: String, required: false },
+    company: { type: String, required: false },
     birthDate: {type: Date},
-    date_created: {type: Date, default: Date.now},
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
     digestors: [{ type: Schema.Types.ObjectId, ref: 'Digestor' }],
     token: {type: Object},
+    githubId: { type: String, required: false },
+    oAuth: {
+        token: { type: String, required: false}
+    },
     //For reset we use a reset token with an expiry (which must be checked)
     reset_token: {type: String},
     reset_token_expires_millis: {type: Number}
 });
 
 Account.plugin(passportLocalMongoose);
+
+Account.statics.findOrCreate = function(conditions, doc, options, callback) {
+    'use strict';
+
+    if (arguments.length < 4) {
+        if (typeof options === 'function') {
+            // Scenario: findOrCreate(conditions, doc, callback)
+            callback = options;
+            options = {};
+        } else if (typeof doc === 'function') {
+            // Scenario: findOrCreate(conditions, callback);
+            callback = doc;
+            doc = {};
+            options = {};
+        }
+    }
+    var self = this;
+    this.findOne(conditions, function (err, result) {
+        if (err || result) {
+            if (options && options.upsert && !err) {
+                self.update(conditions, doc, function (err, count) {
+                    self.findOne(conditions, function (err, result) {
+                        callback(err, result, false);
+                    });
+                });
+            } else {
+                callback(err, result, false);
+            }
+        } else {
+            for (var key in doc) {
+                conditions[key] = doc[key];
+            }
+            console.log("conditions:", JSON.stringify(conditions, null, 4));
+            var obj = new self(conditions);
+            obj.save(function (err) {
+                callback(err, obj, true);
+            });
+        }
+    });
+};
 
 Account.statics.encode = function(data) {
     'use strict';
@@ -137,14 +185,15 @@ Account.statics.createUserToken = function(email, cb) {
     'use strict';
 
     var self = this;
-    this.findOne({email: email}, function(err, usr) {
-        if(err || !usr) {
-            console.log('err');
+    this.findOne({email: email}, function(error, user) {
+        if(error || !user) {
+            console.log('createToken error');
+            cb(error, null);
         }
         //Create a token and add to user and save
         var token = self.encode({email: email});
-        usr.token = new TokenModel({token:token});
-        usr.save(function(err, usr) {
+        user.token = new TokenModel({token: token});
+        user.save(function(err, usr) {
             if (err) {
                 cb(err, null);
             } else {

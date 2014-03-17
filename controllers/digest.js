@@ -217,44 +217,4 @@ exports.digestRequest = function(request, response, next) {
             return next();
         }
     };
-    var digest2 = function(digestor) {
-        // Lookup digestors
-        for(var i = 0; i < digestor.endpoints.length; i++) {
-            var endpoint = digestor.endpoints[i];
-            // Looup endpoints
-            for(var j = 0; j < endpoint.methods.length; j++) {
-                var method = endpoint.methods[j];
-                console.log(request.method.toUpperCase(), " route: ", method.URI, "path: ", pathname);
-                if(exports.pathMatch(method.URI, pathname)) {
-                    if(request.method.toUpperCase() === method.method.toUpperCase()) {
-                        //console.log("route: ", method.URI, " path: ", pathname, " match: ", exports.pathMatch(method.URI, pathname));
-                        // Create Log
-                        var log = LogsCtl.create(request, response, next);
-                        log.digestor = digestor._id;
-                        log.method = method._id;
-                        // If proxy is enabled and valid then pipe request
-                        if(method.proxy.enabled && method.proxy.URI) {
-                            proxyRequest(method, request, response, log);
-                        } else {
-                            console.log(method.response.headers);
-                            if(method.response.headers.length.length > 0) {
-                                //method.response.headers.forEach(function(header, index){
-
-                                //});
-                                console.log(method.response.headers);
-                                //response.writeHeader(method.response.statusCode, method.response.headers);
-                            }
-                            response.setHeader('xxx-appleid', 123);
-                            response.setHeader('content-type', method.response.contentType | 'text/plain');
-                            response.statusCode = method.response.statusCode;
-                            response.send(method.response.message);
-                        }
-                    } else {
-                        response.statusCode = 404;
-                        return next();
-                    }
-                }
-            }
-        }
-    };
 };

@@ -71,16 +71,18 @@ exports.raml = function (request, response, next) {
 //                                                                           //
 // @url POST /import/blueprint                                               //
 ///////////////////////////////////////////////////////////////////////////////
-exports.apiBlueprint = function (request, response, next) {
+exports.blueprint = function (request, response, next) {
     'use strict';
 
     var token = request.headers.token;
     protagonist.parse(request.body, function(error, result) {
         if (error) {
             console.log('Error parsing: ' + error);
+            response.statusCode = 500;
             return next(error);
         }
         console.log(result.ast);
+        response.json(result.ast);
     });
 
     // Fail if digestor name is already created (better cheche domains and assign a new one)
