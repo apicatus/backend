@@ -1,10 +1,10 @@
 // Include gulp
 var gulp = require('gulp')
-	, stylish = require('jshint-stylish')
-	, mocha = require('gulp-mocha');
+    , jshint = require('gulp-jshint')
+    , stylish = require('jshint-stylish')
+    , mocha = require('gulp-mocha')
+    , nodemon = require('gulp-nodemon');
 
-// Include Our Plugins
-var jshint = require('gulp-jshint');
 
 // Lint Task
 gulp.task('lint', function() {
@@ -24,4 +24,19 @@ gulp.task('watch', function() {
 });
 
 // Default Task
-gulp.task('default', ['lint', 'mocha', 'watch']);
+gulp.task('default', ['lint', 'watch', 'develop']);
+// Testing Taks
+gulp.task('test', ['lint', 'mocha']);
+// Develop Taks
+gulp.task('develop', function () {
+    nodemon({
+            script: 'app.js',
+            ext: 'js',
+            ignore: ['ignored.js'],
+            env: { 'NODE_ENV': 'development' }
+        })
+        .on('change', ['lint'])
+        .on('restart', function () {
+            console.log('restarted!')
+        });
+});

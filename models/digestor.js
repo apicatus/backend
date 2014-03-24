@@ -31,10 +31,10 @@ var mongoose = require('mongoose'),
 
 var Authorizations = new Schema({
 });
-var Responses = new Schema({
+/*var Responses = new Schema({
     code: {type: Number, required: false},
     message: { type: String, required: false }
-});
+});*/
 var Parameters = new Schema({
     name: { type: String, required: true, trim: true },
     required: { type: Boolean, default: true, required: false },
