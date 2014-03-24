@@ -180,12 +180,12 @@ exports.digestRequest = function(request, response, next) {
         var method = null;
         for(var i = 0; i < digestor.endpoints.length; i++) {
             method = filterMethods(digestor.endpoints[i], route, httpMethod);
-            if(method) {
+            if(method.length > 0) {
                 break;
             }
         }
         function filterMethods(method, route, httpMethod) {
-            return digestor.endpoints[i].methods.filter(function(method){
+            return digestor.endpoints[i].methods.filter(function(method) {
                 return (exports.pathMatch(method.URI, route) && httpMethod.toUpperCase() === method.method.toUpperCase());
             });
         }
@@ -194,6 +194,7 @@ exports.digestRequest = function(request, response, next) {
     var digest = function(digestor, route, httpMethod) {
         var method = getMethodByRoute(digestor, route, httpMethod);
         if(method) {
+            console.log("getMethodByRoute found!");
             // Create Log
             var log = LogsCtl.create(request, response, next);
             log.digestor = digestor._id;

@@ -12,9 +12,6 @@ var express = require('express'),
     DigestCtl = require('./controllers/digest'),
     Importer = require('./controllers/importer');
 
-
-var GITHUB_CLIENT_ID = conf.oAuthServices.github.clientId;
-var GITHUB_CLIENT_SECRET = conf.oAuthServices.github.clientSecret;
 ////////////////////////////////////////////////////////////////////////////////
 // Mongo URL generator                                                        //
 ////////////////////////////////////////////////////////////////////////////////
