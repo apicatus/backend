@@ -85,12 +85,9 @@ function ensureAuthenticated(request, response, next) {
             }
         });
     } else {
-        console.log("req:", request.accepts('html'));
         if(request.accepts('html')) {
             console.log("llego x html");
             response.redirect(conf.baseUrl + '/login');
-            //response.contentType('text/html');
-            //response.sendfile(conf.staticPath + '/index.html');
         } else {
             response.statusCode = 403;;
             response.json({error: 'No auth token received !'});
