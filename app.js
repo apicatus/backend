@@ -73,21 +73,28 @@ var allowCrossDomain = function(request, response, next) {
 function ensureAuthenticated(request, response, next) {
     'use strict';
 
-    response.contentType('application/json');
     var token = request.headers.token;
 
     if(token) {
         AccountMdl.verify(token, function(error, isValid) {
             if(error || !isValid) {
-                response.status(403);
+                response.statusCode = 403;
                 response.json({error: 'Invalid token !'});
             } else {
                 return next();
             }
         });
     } else {
-        response.status(403);
-        response.json({error: 'No auth token received !'});
+        console.log("req:", request.accepts('html'));
+        if(request.accepts('html')) {
+            console.log("llego x html");
+            response.redirect(conf.baseUrl + '/login');
+            //response.contentType('text/html');
+            //response.sendfile(conf.staticPath + '/index.html');
+        } else {
+            response.statusCode = 403;;
+            response.json({error: 'No auth token received !'});
+        }
     }
 }
 
@@ -154,7 +161,7 @@ app.delete('/logs/:id', LogsCtl.delete);
 ///////////////////////////////////////////////////////////////////////////////
 // Application rutes                                                         //
 ///////////////////////////////////////////////////////////////////////////////
-app.get('/', function(request, response) {
+app.get('/', ensureAuthenticated, function(request, response) {
     'use strict';
     response.sendfile(conf.staticPath + '/index.html');
 });

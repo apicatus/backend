@@ -194,7 +194,6 @@ exports.digestRequest = function(request, response, next) {
     var digest = function(digestor, route, httpMethod) {
         var method = getMethodByRoute(digestor, route, httpMethod);
         if(method) {
-            console.log("getMethodByRoute found!");
             // Create Log
             var log = LogsCtl.create(request, response, next);
             log.digestor = digestor._id;
@@ -205,7 +204,6 @@ exports.digestRequest = function(request, response, next) {
             } else {
                 if(method.response.headers && method.response.headers.length > 0) {
                     method.response.headers.forEach(function(header){
-                        console.log("header", header);
                         response.setHeader(header.name, header.value);
                     });
                 }
