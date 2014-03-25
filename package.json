@@ -1,40 +1,41 @@
 {
   "name": "apicatus",
-  "version": "0.0.1",
-  "description": "Apicatus api test suite",
+  "version": "0.1.0",
+  "description": "Apicatus backend",
   "main": "app.js",
   "homepage": "http://apicat.us",
   "repository": {
     "type": "git",
-    "url": "git://github.com/maggiben/apicatus.git"
+    "url": "git@github.com:apicatus/backend.git"
   },
   "dependencies": {
-    "express": "~3.4",
-    "socket.io": "~0.9.16",
+    "express": "~3",
+    "socket.io": "~0.9",
     "http-proxy": "~1.0",
     "mongoose": "~3.8",
     "request": "~2",
     "passport": "~0.1",
-    "passport-local": "~0.1.6",
+    "passport-local": "~0.1",
     "passport-local-mongoose": "~0.2",
     "passport-github": "~0.1",
-    "jsonwebtoken": "~0.1.0",
-    "jwt-simple": "~0.1.0"
+    "jsonwebtoken": "~0.1",
+    "jwt-simple": "~0.1",
+    "protagonist": "~0.10",
+    "raml-parser": "~0.8",
+    "passport-github": "~0.1",
+    "github": "~0.1"
   },
   "devDependencies": {
-    "mocha": "~1.13.0",
-    "should": "~2.0.1",
-    "supertest": "~0.8.0",
-    "coveralls": "~2.3.0",
-    "istanbul": "~0.1.44",
-    "gulp": "^3.5.5",
-    "gulp-jshint": "^1.5.0",
-    "gulp-mocha": "^0.4.1",
-    "jshint-stylish": "^0.1.5",
-    "protagonist": "^0.10.0",
-    "raml-parser": "^0.8.5",
-    "passport-github": "^0.1.5",
-    "github": "^0.1.14"
+    "mocha": "~1",
+    "should": "~2",
+    "supertest": "~0.8",
+    "coveralls": "~2.3",
+    "istanbul": "~0.1",
+    "gulp": "~3.5",
+    "gulp-jshint": "~1.5",
+    "gulp-mocha": "~0.4",
+    "jshint-stylish": "~0.1",
+    "gulp-nodemon": "~1"
   },
   "scripts": {
     "test": "make test-cov"
@@ -48,5 +49,5 @@
     "testing"
   ],
   "author": "Benjamin Maggi",
-  "license": "BSD"
+  "license": "MIT"
 }

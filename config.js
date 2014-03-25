@@ -75,14 +75,14 @@ var environments = {
             }
         },
         environment: process.env.NODE_ENV,
-        listenPort: 80,
-        ip: process.env.IP || '107.170.71.230',
+        listenPort: process.env.PORT || 8080,
+        ip: process.env.IP || '127.0.0.1',
         baseUrl: 'apicat.us',
         allowCrossDomain: false,
         autoStart: true,
         ttl: 3600000,
         resetTokenExpiresMinutes: 20,
-        staticPath: "/frontend/build",
+        staticPath: "./frontend/build",
         mongoUrl: {
             hostname: "paulo.mongohq.com",
             port: 10026,
