@@ -161,7 +161,7 @@ app.delete('/logs/:id', LogsCtl.delete);
 ///////////////////////////////////////////////////////////////////////////////
 // Application rutes                                                         //
 ///////////////////////////////////////////////////////////////////////////////
-app.get('/', ensureAuthenticated, function(request, response) {
+app.get('/', function(request, response) {
     'use strict';
     response.sendfile(conf.staticPath + '/index.html');
 });
