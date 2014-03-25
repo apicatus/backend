@@ -1,4 +1,4 @@
-## Backend Code [ [![Build Status](https://travis-ci.org/apicatus/backend.svg?branch=master)](https://travis-ci.org/maggiben/apicatus) [![Coverage Status](https://coveralls.io/repos/maggiben/apicatus/badge.png)](https://coveralls.io/r/maggiben/apicatus) [![Dependency Status](https://gemnasium.com/apicatus/backend.svg)](https://gemnasium.com/apicatus/backend) [![Code Climate](https://codeclimate.com/github/apicatus/backend.png)](https://codeclimate.com/github/apicatus/backend) ]
+## Backend Code [ [![GitHub version](https://badge.fury.io/gh/apicatus%2Fbackend.png)](http://badge.fury.io/gh/apicatus%2Fbackend) [![Build Status](https://travis-ci.org/apicatus/backend.svg?branch=master)](https://travis-ci.org/maggiben/apicatus) [![Coverage Status](https://coveralls.io/repos/maggiben/apicatus/badge.png)](https://coveralls.io/r/maggiben/apicatus) [![Dependency Status](https://gemnasium.com/apicatus/backend.svg)](https://gemnasium.com/apicatus/backend) [![Code Climate](https://codeclimate.com/github/apicatus/backend.png)](https://codeclimate.com/github/apicatus/backend) ]
 
 ## Quick Start
 
