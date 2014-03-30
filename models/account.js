@@ -91,10 +91,15 @@ Account.statics.findOrCreate = function(conditions, doc, options, callback) {
     this.findOne(conditions, function (err, result) {
         if (err || result) {
             if (options && options.upsert && !err) {
-                self.update(conditions, doc, function (err, count) {
-                    self.findOne(conditions, function (err, result) {
-                        callback(err, result, false);
-                    });
+                self.update(conditions, doc, function (err) {
+                    if (err) {
+                        console.log("error");
+                        callback(new Error(err), false);
+                    } else {
+                        self.findOne(conditions, function (err, result) {
+                            callback(err, result, false);
+                        });
+                    }
                 });
             } else {
                 callback(err, result, false);
@@ -205,7 +210,6 @@ Account.statics.createUserToken = function(email, cb) {
 Account.statics.deleteUserToken = function(email, cb) {
     'use strict';
 
-    var self = this;
     this.findOne({email: email}, function(error, user) {
         if(error || !user) {
             console.log("deleteUserToken error");

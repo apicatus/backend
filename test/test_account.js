@@ -121,7 +121,7 @@ describe('Apicatus test suite', function () {
                                 return done();
                             });
                     });
-            })
+            });
             it('should update a user account', function(done) {
                 'user strict'
                 var url = 'http://' + conf.ip + ':' + conf.listenPort;
@@ -242,6 +242,20 @@ describe('Apicatus test suite', function () {
                         res.statusCode.should.equal(401);
                         return done();
                     });
+            })
+        });
+        describe('Safety test', function() {
+            it('should fail trying to read a user account without credentials', function(done) {
+                'user strict'
+                var url = 'http://' + conf.ip + ':' + conf.listenPort;
+                request(url)
+                .get('/user')
+                .expect('Content-Type', /json/)
+                .expect(403)
+                .end(function(err, res) {
+                    if (err) throw err;
+                    return done();
+                });
             })
         });
     });

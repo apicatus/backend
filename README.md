@@ -19,18 +19,18 @@ At a high level, the structure looks roughly like this:
 
 ```
 frontend/
-  |- grunt-tasks/
-  |- controllers/
-  |- models/
-  |- test/
-  |  |  |- <test code>
-  |- node_modules/
-  |  |- <libraries>
-  |- config.js
-  |- gulpfile.js
-  |- Makefilejs
-  |- package.json
-  |- app.js
+  ├ grunt-tasks/
+  ├ controllers/
+  ├ models/
+  ├ test/
+  │ └ <test code>
+  ├ node_modules/
+  │ └ <libraries>
+  ├ config.js
+  ├ gulpfile.js
+  ├ Makefilejs
+  ├ package.json
+  └ app.js
 ```
 
 What follows is a brief description of each entry, but most directories contain

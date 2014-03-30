@@ -69,9 +69,7 @@ var generateMongoUrl = function(conf) {
 var init = function() {
     'use strict';
 
-    var server = null;
     var mongoUrl = null;
-
     // In some test context it may be a good idea to init the service
     // from whitin the test unit instead
     if(conf.autoStart) {
@@ -83,7 +81,7 @@ var init = function() {
         SERVER = http.createServer(app);
         SERVER.listen(conf.listenPort, conf.ip);
         socketio.listen(SERVER);
-        console.log("connected to: %s:%s", conf.ip, conf.listenPort);
+        console.log('connected to: %s:%s', conf.ip, conf.listenPort);
         return SERVER;
     }
 };
@@ -92,13 +90,16 @@ var init = function() {
 // Mongoose event listeners                                                   //
 ////////////////////////////////////////////////////////////////////////////////
 mongoose.connection.on('open', function() {
+    'use strict';
     console.log('mongodb connected');
 });
 mongoose.connection.on('error', function(error) {
+    'use strict';
     console.log('mongodb connection error: %s', error);
 });
 // When the connection is disconnected
 mongoose.connection.on('disconnected', function () {
+    'use strict';
     console.log('Mongoose default connection disconnected');
 });
 
@@ -138,6 +139,9 @@ function ensureAuthenticated(request, response, next) {
             }
         });
     } else {
+        response.statusCode = 403;
+        response.json({error: 'No auth token received !'});
+        /*
         if(request.accepts('html')) {
             console.log("llego x html");
             response.redirect(conf.baseUrl + '/login');
@@ -145,6 +149,7 @@ function ensureAuthenticated(request, response, next) {
             response.statusCode = 403;;
             response.json({error: 'No auth token received !'});
         }
+        */
     }
 }
 
@@ -258,15 +263,6 @@ app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
 app.post('/importer/blueprint', ensureAuthenticated, Importer.blueprint);
 
 ///////////////////////////////////////////////////////////////////////////////
-// Restarts the workers.
- ///////////////////////////////////////////////////////////////////////////////
-process.on('SIGHUP', function () {
-    //killAllWorkers('SIGTERM');
-    //createWorkers(numCPUs * 2);
-});
-
-
-///////////////////////////////////////////////////////////////////////////////
 // socket.io                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -274,26 +270,30 @@ SERVER = init();
 ///////////////////////////////////////////////////////////////////////////////
 // Gracefully Shuts down the workers.
 ///////////////////////////////////////////////////////////////////////////////
-process.on('SIGTERM', function () {
-    'use strict';
+process
+    .on('SIGTERM', function () {
+        'use strict';
 
-    console.log("SIGTERM");
-    SERVER.close(function () {
-        mongoose.connection.close(function () {
-            process.exit(0);
+        console.log('SIGTERM');
+        SERVER.close(function () {
+            mongoose.connection.close(function () {
+                process.exit(0);
+            });
+        });
+    })
+    .on('SIGHUP', function () {
+        //killAllWorkers('SIGTERM');
+        //createWorkers(numCPUs * 2);
+    })
+    .on('SIGINT', function() {
+        'use strict';
+
+        console.log('SIGINT');
+        SERVER.close(function () {
+            mongoose.connection.close(function () {
+                process.exit(1);
+            });
         });
     });
-});
-
-process.on('SIGINT', function() {
-    'use strict';
-
-    console.log("SIGINT");
-    SERVER.close(function () {
-        mongoose.connection.close(function () {
-            process.exit(1);
-        });
-    });
-});
 
 
