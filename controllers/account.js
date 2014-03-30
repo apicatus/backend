@@ -111,18 +111,19 @@ passport.use(new GitHubStrategy({
 ///////////////////////////////////////////////////////////////////////////////
 exports.signIn = function(request, response, next) {
     'use strict';
+
     passport.authenticate('local', { session: false }, function(error, user) {
         if (error) {
             response.statusCode = 500;
             return next(error);
         }
         if (user) {
-            Account.createUserToken(user.email, function(error, token) {
-                if (error || !token) {
+            Account.createUserToken(user.email, function(error, userAndToken) {
+                if (error || !userAndToken) {
                     response.statusCode = 500;
-                    response.json({error: 'Issue generating token'});
+                    response.json({error: 'Error generating token'});
                 } else {
-                    response.json(user);
+                    response.json(userAndToken);
                 }
             });
         } else {
@@ -132,6 +133,39 @@ exports.signIn = function(request, response, next) {
     })(request, response, next);
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Route to Account signout                                                  //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} message ok                                               //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /account/signout                                                 //
+///////////////////////////////////////////////////////////////////////////////
+exports.signOut = function(request, response, next) {
+    'use strict';
+    //request.logout();
+    var incomingToken = request.headers.token;
+    var decoded = Account.decode(incomingToken);
+
+    if (decoded && decoded.email) {
+        Account.deleteUserToken(decoded.email, function(error, user) {
+            if (error || !user) {
+                response.statusCode = 500;
+                response.json({error: 'Error deleting token'});
+            } else {
+                response.statusCode = 200;
+                response.json({"title": "sucess", "message": "signout", "status": "ok"});
+            }
+        });
+    } else {
+        response.statusCode = 500;
+        response.json({error: 'Error decoding incoming token.'});
+    }
+};
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get currently authenticated Account                              //
 //                                                                           //
@@ -145,6 +179,7 @@ exports.signIn = function(request, response, next) {
 // @url GET /account/getAccount                                              //
 ///////////////////////////////////////////////////////////////////////////////
 exports.read = function(request, response, next) {
+
     'use strict';
     response.contentType('application/json');
     var incomingToken = request.headers.token;
@@ -161,7 +196,7 @@ exports.read = function(request, response, next) {
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Issue decoding incoming token.'});
+        response.json({error: 'Error decoding incoming token.'});
     }
 };
 
@@ -179,9 +214,9 @@ exports.read = function(request, response, next) {
 ///////////////////////////////////////////////////////////////////////////////
 exports.create = function(request, response, next) {
     'use strict';
+
     response.contentType('application/json');
     var username = request.body.username;
-    console.log(request.body);
     Account.findOne({username: username}, function(error, user) {
         if (error) {
             response.statusCode = 500;
@@ -222,21 +257,29 @@ exports.create = function(request, response, next) {
 ///////////////////////////////////////////////////////////////////////////////
 exports.update = function(request, response, next) {
     'use strict';
-    response.contentType('application/json');
-    delete request.body._id;
-    Account.findByIdAndUpdate(request.user._id, request.body, onUpdate);
 
-    function onUpdate (error, account) {
-        if (error) {
-            response.statusCode = 500;
-            return next(error);
-        }
-        if (!account) {
-            return next(error);
-        }
-        response.status(200);
-        var accountJSON = JSON.stringify(account);
-        return response.send(accountJSON);
+    var incomingToken = request.headers.token;
+    var decoded = Account.decode(incomingToken);
+
+    if (decoded && decoded.email) {
+        Account.findOneAndUpdate({email: decoded.email}, request.body)
+        .exec(function(error, user) {
+            if (error) {
+                response.statusCode = 500;
+                return next();
+            }
+            if(!user) {
+                response.statusCode = 404;
+                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+            } else {
+
+                response.statusCode = 200;
+                return response.json(user);
+            }
+        });
+    } else {
+        response.statusCode = 500;
+        response.json({error: 'Error decoding incoming token.'});
     }
 };
 
@@ -255,15 +298,24 @@ exports.update = function(request, response, next) {
 exports.delete = function(request, response, next) {
     'use strict';
 
-    Account.findByIdAndRemove(request.user._id, onDelete);
-    function onDelete (error) {
-        if (error) {
-            response.statusCode = 500;
-            return next(error);
-        }
-        // The request was processed successfully, but no response body is needed.
-        response.statusCode = 204;
-        return response.json({});
+    var incomingToken = request.headers.token;
+    var decoded = Account.decode(incomingToken);
+
+    if (decoded && decoded.email) {
+        Account.findOneAndRemove({email: decoded.email})
+        .exec(function(error) {
+            if (error) {
+                response.statusCode = 500;
+                return next();
+            } else {
+                // The request was processed successfully, but no response body is needed.
+                response.statusCode = 204;
+                return response.json({"title": "sucess", "message": "removed", "status": "ok"});
+            }
+        });
+    } else {
+        response.statusCode = 500;
+        response.json({error: 'Error decoding incoming token.'});
     }
 };
 

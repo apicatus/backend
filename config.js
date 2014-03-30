@@ -51,7 +51,7 @@ var environments = {
         baseUrl: 'miapi.com',
         allowCrossDomain: false,
         autoStart: false,
-        ttl: 1000,
+        ttl: (1000 * 60 * 100),
         resetTokenExpiresMinutes: 20,
         staticPath: "/frontend/build",
         mongoUrl: {

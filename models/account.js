@@ -134,7 +134,7 @@ Account.statics.verify = function(token, cb) {
                 cb(new Error(error), false);
             } else if (token === user.token.token) {
                 // Verify if token has expired
-                cb(false, (now.getTime() - user.token.date_created.getTime() < config.ttl));
+                cb(false, (now.getTime() - user.token.date_created.getTime() < config.ttl), decoded);
             }
         });
     } else {
@@ -187,18 +187,38 @@ Account.statics.createUserToken = function(email, cb) {
     var self = this;
     this.findOne({email: email}, function(error, user) {
         if(error || !user) {
-            console.log('createToken error');
             cb(error, null);
         }
         //Create a token and add to user and save
         var token = self.encode({email: email});
         user.token = new TokenModel({token: token});
         user.save(function(err, usr) {
-            if (err) {
+            if (err || !usr) {
                 cb(err, null);
             } else {
-                console.log("about to cb with usr.token.token: " + usr.token.token);
-                cb(false, usr.token.token); //token object, in turn, has a token property :)
+                cb(false, usr); //token object, in turn, has a token property :)
+            }
+        });
+    });
+};
+
+Account.statics.deleteUserToken = function(email, cb) {
+    'use strict';
+
+    var self = this;
+    this.findOne({email: email}, function(error, user) {
+        if(error || !user) {
+            console.log("deleteUserToken error");
+            cb(error, null);
+        }
+        //Create a token and add to user and save
+        delete user.token;
+        user.save(function(err, usr) {
+            if (err || !usr) {
+                cb(err, null);
+            } else {
+                //console.log("about to cb with usr.token.token: " + usr.token.token);
+                cb(false, usr); //token object, in turn, has a token property :)
             }
         });
     });

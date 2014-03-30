@@ -11,7 +11,7 @@
   "dependencies": {
     "express": "~3",
     "socket.io": "~0.9",
-    "http-proxy": "~1.0",
+    "http-proxy": "~1",
     "mongoose": "~3.8",
     "request": "~2",
     "passport": "~0.2",
@@ -31,7 +31,7 @@
     "supertest": "~0.10",
     "coveralls": "~2.10",
     "istanbul": "~0.2",
-    "gulp": "~3.5",
+    "gulp": "~3",
     "gulp-jshint": "~1.5",
     "gulp-mocha": "~0.4",
     "jshint-stylish": "~0.1",

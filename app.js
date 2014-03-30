@@ -1,7 +1,37 @@
 ///////////////////////////////////////////////////////////////////////////////
+// @file         : app.js                                                    //
+// @summary      : Apicat.us API                                             //
+// @version      : 0.1                                                       //
+// @project      : apicat.us                                                 //
+// @description  :                                                           //
+// @author       : Benjamin Maggi                                            //
+// @email        : benjaminmaggi@gmail.com                                   //
+// @date         : 6 Oct 2013                                                //
+// ------------------------------------------------------------------------- //
+//                                                                           //
+// @copyright Copyright 2014 Benjamin Maggi, all rights reserved.            //
+//                                                                           //
+//                                                                           //
+// License:                                                                  //
+// This program is free software; you can redistribute it                    //
+// and/or modify it under the terms of the GNU General Public                //
+// License as published by the Free Software Foundation;                     //
+// either version 2 of the License, or (at your option) any                  //
+// later version.                                                            //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             //
+// GNU General Public License for more details.                              //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
 // Module dependencies.                                                      //
 ///////////////////////////////////////////////////////////////////////////////
-var express = require('express'),
+var http = require('http'),
+    socketio  = require('socket.io'),
+    express = require('express'),
     mongoose = require('mongoose'),
     conf = require('./config'),
     AccountMdl = require('./models/account'),
@@ -12,6 +42,14 @@ var express = require('express'),
     DigestCtl = require('./controllers/digest'),
     Importer = require('./controllers/importer');
 
+///////////////////////////////////////////////////////////////////////////////
+// Run app                                                                   //
+///////////////////////////////////////////////////////////////////////////////
+var app = express();
+var SERVER = null;
+var DB = null;
+
+exports.app = app;
 ////////////////////////////////////////////////////////////////////////////////
 // Mongo URL generator                                                        //
 ////////////////////////////////////////////////////////////////////////////////
@@ -31,25 +69,39 @@ var generateMongoUrl = function(conf) {
 var init = function() {
     'use strict';
 
+    var server = null;
+    var mongoUrl = null;
+
+    // In some test context it may be a good idea to init the service
+    // from whitin the test unit instead
     if(conf.autoStart) {
-        var mongoUrl = generateMongoUrl(conf.mongoUrl);
-        console.log('mongodb connet to', mongoUrl);
+        mongoUrl = generateMongoUrl(conf.mongoUrl);
         // Connect mongoose
-        mongoose.connect(mongoUrl);
-        // Check if connected
-        mongoose.connection.on('open', function(){
-            console.log('mongodb connected to: %s', mongoUrl);
-        });
-        var server = require('http').createServer(app);
-        server.listen(conf.listenPort, conf.ip);
-        console.log(conf.listenPort, conf.ip);
+        DB = mongoose.connect(mongoUrl);
+        // http://stackoverflow.com/questions/17696801/express-js-app-listen-vs-server-listen
+        // TODO make express 4.0 compatible
+        SERVER = http.createServer(app);
+        SERVER.listen(conf.listenPort, conf.ip);
+        socketio.listen(SERVER);
+        console.log("connected to: %s:%s", conf.ip, conf.listenPort);
+        return SERVER;
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// Run app                                                                   //
-///////////////////////////////////////////////////////////////////////////////
-var app = express();
+////////////////////////////////////////////////////////////////////////////////
+// Mongoose event listeners                                                   //
+////////////////////////////////////////////////////////////////////////////////
+mongoose.connection.on('open', function() {
+    console.log('mongodb connected');
+});
+mongoose.connection.on('error', function(error) {
+    console.log('mongodb connection error: %s', error);
+});
+// When the connection is disconnected
+mongoose.connection.on('disconnected', function () {
+    console.log('Mongoose default connection disconnected');
+});
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // CORS middleware (only to test on cloud9)                                  //
@@ -76,11 +128,12 @@ function ensureAuthenticated(request, response, next) {
     var token = request.headers.token;
 
     if(token) {
-        AccountMdl.verify(token, function(error, isValid) {
+        AccountMdl.verify(token, function(error, isValid, decoded) {
             if(error || !isValid) {
                 response.statusCode = 403;
                 response.json({error: 'Invalid token !'});
             } else {
+                request.decoded = decoded;
                 return next();
             }
         });
@@ -101,6 +154,7 @@ function ensureAuthenticated(request, response, next) {
 app.configure(function() {
     'use strict';
 
+    app.set('title', 'Apicat.us');
     app.set('view engine', 'html');
     app.set('views', __dirname + '/views');
     app.use(express.bodyParser());
@@ -112,7 +166,6 @@ app.configure(function() {
     app.use(allowCrossDomain);
     app.use(app.router);
     app.use(DigestCtl.digestRequest);
-    //app.use(express.vhost('*.miapi.com', require('./test/test').test));
     app.use(express.static(conf.staticPath));
 });
 
@@ -134,24 +187,25 @@ app.configure('production', function() {
 });
 
 ///////////////////////////////////////////////////////////////////////////////
-// Digestors Resource Management                                             //
+// Digestors CURD Management                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 // Collections
-app.post('/digestors', DigestorCtl.create);
+app.post('/digestors', ensureAuthenticated, DigestorCtl.create);
 app.get('/digestors', ensureAuthenticated, DigestorCtl.read);
-//app.put('/digestors', DigestorCtl.updateAll);
-app.delete('/digestors', DigestorCtl.deleteAll);
+app.delete('/digestors', ensureAuthenticated, DigestorCtl.deleteAll);
 // Entities
 app.get('/digestors/:name', ensureAuthenticated, DigestorCtl.readOne);
-app.put('/digestors/:id', ensureAuthenticated, DigestorCtl.updateOne);
+app.put('/digestors/:name', ensureAuthenticated, DigestorCtl.updateOne);
 app.delete('/digestors/:name', ensureAuthenticated, DigestorCtl.deleteOne);
 
 
 ///////////////////////////////////////////////////////////////////////////////
 // Logs CRUD                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
+// Collections
 app.post('/logs', LogsCtl.create);
 app.get('/logs', LogsCtl.read);
+// Entities
 app.put('/logs/:id', LogsCtl.update);
 app.delete('/logs/:id', LogsCtl.delete);
 
@@ -166,6 +220,7 @@ app.get('/', function(request, response) {
 // User CRUD Methods & Servi                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 app.post('/user/signin', AccountCtl.signIn);
+app.get('/user/signout', ensureAuthenticated, AccountCtl.signOut);
 app.post('/user', AccountCtl.create);
 app.get('/user', ensureAuthenticated, AccountCtl.read);
 app.put('/user', ensureAuthenticated, AccountCtl.update);
@@ -201,11 +256,44 @@ app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
 // API Model Importer service                                                //
 ///////////////////////////////////////////////////////////////////////////////
 app.post('/importer/blueprint', ensureAuthenticated, Importer.blueprint);
+
+///////////////////////////////////////////////////////////////////////////////
+// Restarts the workers.
+ ///////////////////////////////////////////////////////////////////////////////
+process.on('SIGHUP', function () {
+    //killAllWorkers('SIGTERM');
+    //createWorkers(numCPUs * 2);
+});
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // socket.io                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
-init();
-exports.app = app;
-//module.exports = app;
+SERVER = init();
+///////////////////////////////////////////////////////////////////////////////
+// Gracefully Shuts down the workers.
+///////////////////////////////////////////////////////////////////////////////
+process.on('SIGTERM', function () {
+    'use strict';
+
+    console.log("SIGTERM");
+    SERVER.close(function () {
+        mongoose.connection.close(function () {
+            process.exit(0);
+        });
+    });
+});
+
+process.on('SIGINT', function() {
+    'use strict';
+
+    console.log("SIGINT");
+    SERVER.close(function () {
+        mongoose.connection.close(function () {
+            process.exit(1);
+        });
+    });
+});
+
 
