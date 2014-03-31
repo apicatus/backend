@@ -26,11 +26,16 @@ frontend/
   │ └ <test code>
   ├ node_modules/
   │ └ <libraries>
+  ├ app.js
   ├ config.js
   ├ gulpfile.js
-  ├ Makefilejs
+  ├ Makefile
   ├ package.json
-  └ app.js
+  ├ .gitignore
+  ├ .jshintrc
+  ├ .travis.yml
+  ├ LICENSE
+  └ README.md
 ```
 
 What follows is a brief description of each entry, but most directories contain
@@ -41,9 +46,12 @@ learn more.
 - `modules/` - here's where we define the schemas for our models.
 - `node_modules/` - third-party libraries. [npm](http://npmjs.org) will install
   packages here..
+- `.gitignore` - the git ignore configuration file.
 - `.jshintrc` - the JsHint configuration file.
+- `.travis.yml` - Travis CI configuration file.
 - `config.js` - this is the application configuration file.
 - `gulpfile.js` - our build script; see "The Build System" below.
+- `Makefile` - Main make scripe, used to run the test suite.
 - `app.js` and `landing.js` - are the servers main modules and entry points
 - `package.json` - metadata about the app, used by NPM and our build script. Our
   NPM dependencies are listed here.
@@ -88,4 +96,12 @@ Gulp script allows to use nodemon to reload the server if files have changes
 $ gulp develop
 ```
 
+###  Test suire
+There are many ways to test the code, the purpose of having two different test setups has to do with CI and CD
+`gulp mocha` though installed is not supported at this time due to the fact that gulp-mocha cant pass environment variables to node, therefore only one state can be enabled for the application and that could potentially damage the primary DB.
+By setting up different test environments (localhost, production, staging, qa) one could potentially engage different build/test conditions (not available as of v0.2)
 
+To test the code in any enviroment use: (uses clean test database)
+```sh
+$ npm test
+```

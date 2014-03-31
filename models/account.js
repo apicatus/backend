@@ -42,7 +42,8 @@ Token.methods.hasExpired = function() {
     'use strict';
 
     var now = new Date();
-    return (now.getTime() - this.date_created.getTime()) > config.ttl;
+    var diff = (now.getTime() - created);
+    return diff > config.ttl;
 };
 var TokenModel = mongoose.model('Token', Token);
 
@@ -227,7 +228,25 @@ Account.statics.deleteUserToken = function(email, cb) {
         });
     });
 };
+Account.statics.invalidateUserToken = function(email, cb) {
+    'use strict';
 
+    var self = this;
+    this.findOne({email: email}, function(error, user) {
+        if(error || !user) {
+            console.log('error');
+            cb(error, null);
+        }
+        user.token = null;
+        user.save(function(error, user) {
+            if (error) {
+                cb(error, null);
+            } else {
+                cb(false, 'removed');
+            }
+        });
+    });
+};
 Account.statics.generateResetToken = function(email, cb) {
     'use strict';
 
@@ -245,6 +264,7 @@ Account.statics.generateResetToken = function(email, cb) {
             cb(false, user);
         } else {
             //TODO: This is not really robust and we should probably return an error code or something here
+            console.log('No user with that email found.');
             cb(new Error('No user with that email found.'), null);
         }
     });

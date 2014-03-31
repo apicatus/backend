@@ -25,7 +25,7 @@ function loginUser(profle) {
     .expect(200)
 };
 
-describe('Digestor Management', function () {
+describe('Digestor management tests', function () {
     var cookie = null;
     var token = null;
     before(function(done) {

@@ -30,6 +30,7 @@
 var conf = require('../config'),
     mongoose = require('mongoose'),
     passport = require('passport'),
+    Mailer = require('../controllers/mailer'),
     GitHubStrategy = require('passport-github').Strategy,
     GitHubApi = require("github");
 
@@ -179,9 +180,8 @@ exports.signOut = function(request, response, next) {
 // @url GET /account/getAccount                                              //
 ///////////////////////////////////////////////////////////////////////////////
 exports.read = function(request, response, next) {
-
     'use strict';
-    response.contentType('application/json');
+
     var incomingToken = request.headers.token;
     var decoded = Account.decode(incomingToken);
 
@@ -319,28 +319,36 @@ exports.delete = function(request, response, next) {
     }
 };
 
-exports.token = function(request, response, next) {
+exports.resetToken = function(request, response, next) {
     'use strict';
 
-    passport.authenticate('local', { session: false }, function(error, user) {
-        if (error) {
-            response.statusCode = 500;
-            return next(error);
-        }
-        if (user) {
-            Account.createUserToken(request.user.email, function(error, token) {
-                if (error || !token) {
-                    response.statusCode = 500;
-                    response.json({error: 'Issue generating token'});
-                } else {
-                    response.json({token : token});
-                }
-            });
-        } else {
-            response.statusCode = 401;
-            return response.json({error: 'unauthorized'});
-        }
-    })(request, response, next);
+    console.log("password forgot", request.body);
+    if (request.body.email) {
+        Account.generateResetToken(request.body.email, function(error, user) {
+            if(error || !user) {
+                console.log("some error")
+                response.statusCode = 500;
+                return next();
+            } else {
+                var token = user.reset_token;
+                var resetLink = 'http://' + conf.baseUrl + '/reset/'+ token + '/' + user.email;
+
+                //TODO: This is all temporary hackish. When we have email configured
+                //properly, all this will be stuffed within that email instead :)
+                var message = 'To reset your password follow the url below.\n' + resetLink + '\nIf you did not request your password to be reset please ignore this email and your password will stay as it is.';
+                var template = '<h2>Reset Email (simulation)</h2><br><p>To reset your password click the URL below.</p><br>' +
+                '<a href=' + resetLink + '>' + resetLink + '</a><br>' +
+                'If you did not request your password to be reset please ignore this email and your password will stay as it is.';
+
+                Mailer.sendTemplate(message, template, "Password Reset", ['benjaminmaggi@gmail.com']);
+                response.statusCode = 200;
+                return response.json({"title": "sucess", "message": "Password reset email sent", "status": "ok"});
+            }
+        });
+    } else {
+        response.statusCode = 404;
+        response.json({error: 'Missing email.'});
+    }
 };
 
 ///////////////////////////////////////////////////////////////////////////////

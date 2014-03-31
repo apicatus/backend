@@ -1,6 +1,6 @@
 {
   "name": "apicatus",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Apicatus backend",
   "main": "app.js",
   "homepage": "http://apicat.us",
@@ -23,7 +23,8 @@
     "jwt-simple": "~0.1",
     "protagonist": "~0.10",
     "raml-parser": "~0.8",
-    "github": "~0.1"
+    "github": "~0.1",
+    "nodemailer": "~0.6"
   },
   "devDependencies": {
     "mocha": "~1",
@@ -31,10 +32,10 @@
     "supertest": "~0.10",
     "coveralls": "~2.10",
     "istanbul": "~0.2",
+    "jshint-stylish": "~0.1",
     "gulp": "~3",
     "gulp-jshint": "~1.5",
     "gulp-mocha": "~0.4",
-    "jshint-stylish": "~0.1",
     "gulp-nodemon": "~1"
   },
   "scripts": {
