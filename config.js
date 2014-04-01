@@ -15,6 +15,10 @@ var environments = {
                 clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
             }
         },
+        email: {
+            user: "",
+            password: ""
+        },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
         ip: process.env.IP || '127.0.0.1',
@@ -45,6 +49,10 @@ var environments = {
                 clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
             }
         },
+        email: {
+            user: "",
+            password: ""
+        },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
         ip: process.env.IP || os.hostname(),
@@ -73,6 +81,10 @@ var environments = {
                 clientId: "1b147fb22f603248b539",
                 clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
             }
+        },
+        email: {
+            user: "",
+            password: ""
         },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
