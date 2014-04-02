@@ -103,7 +103,7 @@ exports.pathMatch = function(route, path) {
 exports.digestRequest = function(request, response, next) {
     'use strict';
 
-    console.log("digest");
+    // console.log("digest");
     if (!request.headers.host) {
         console.log("skip digest");
         return next();
@@ -116,20 +116,21 @@ exports.digestRequest = function(request, response, next) {
     if(!subdomainString) return next();
     // create an array of subdomains
     var subdomainArray = subdomainString[1].split('.');
-    console.log("subdomainArray", subdomainArray);
+    // console.log("subdomainArray", subdomainArray);
 
     var url_parts = url.parse(request.url, true, true);
     var pathname = url_parts.pathname;
+
     // Lookup
     //DigestorMdl.findOne({'endpoints.methods.URI':  pathname}, 'endpoints.methods')
     DigestorMdl.findOne({name: subdomainArray[0]})
     .exec(function(error, digestor) {
         if (error) {
-            response.status(500);
+            response.statusCode = 500;
             return next(error);
         }
         if(!digestor) {
-            response.status(404);
+            response.statusCode = 404;
             return response.json({ error: "digestor not found" });
         }
         digest(digestor, pathname, request.method);
@@ -212,12 +213,15 @@ exports.digestRequest = function(request, response, next) {
             } else {
                 if(method.response.headers && method.response.headers.length > 0) {
                     method.response.headers.forEach(function(header){
-                        response.setHeader(header.name, header.value);
+                        if(header.name && header.value) {
+                            response.set(header.name, header.value);
+                        }
                     });
                 }
-                response.setHeader('content-type', method.response.contentType | 'text/plain');
-                response.statusCode = method.response.statusCode;
-                response.send(method.response.message);
+                response.set('content-type', method.response.contentType || 'application/json');
+                response.statusCode = method.response.statusCode || 200;
+                // Allow raw data to be sent unless Content-Type is previously defined
+                response.send(new Buffer(method.response.message));
             }
         } else {
             response.statusCode = 404;

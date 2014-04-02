@@ -169,7 +169,7 @@ exports.create = function (request, response, next) {
         log.responseStatus = response.statusCode;
         //log.responseBody = response.statusCode;
         log.save(onSave);
-        console.log("response finish: ", log.time, "ms, length", response.getHeader('Content-Length'));
+        // console.log("response finish: ", log.time, "ms, length", response.getHeader('Content-Length'));
     }
     response.on('finish', logRequest);
     response.on('data', function (chunk) {

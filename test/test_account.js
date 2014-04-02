@@ -44,6 +44,15 @@ describe('User admin tests', function () {
         }
         if(mongoose.connection.readyState === 0) {
             mongoose.connect('mongodb://admin:admin@alex.mongohq.com:10062/cloud-db');
+        } else if(mongoose.connection.readyState === 1) {
+            clearCollections();
+            try {
+                server = startServer();
+            } catch(error) {
+                console.log("PORT OPEN ?");
+                done();
+            }
+            done();
         }
 
         mongoose.connection.on("open", function() {
@@ -51,7 +60,7 @@ describe('User admin tests', function () {
             server = startServer();
             done();
         });
-    })
+    });
     after(function (done) {
         return done();
         /* TODO:

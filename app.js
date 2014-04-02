@@ -246,6 +246,8 @@ app.put('/user', ensureAuthenticated, AccountCtl.update);
 app.del('/user', ensureAuthenticated, AccountCtl.delete);
 app.post('/user/forgot', AccountCtl.resetToken);
 app.get('/user/reset/:id/:email', function(req, res) {
+    'use strict';
+
     console.log('GOT IN /reset/:id...');
     var token = req.params.id,
         email = req.params.email,
@@ -265,14 +267,17 @@ app.get('/user/reset/:id/:email', function(req, res) {
         res.render('resetpass', {email: email});
     }
 });
-// GET /auth/github
+///////////////////////////////////////////////////////////////////////////////
 //   Use passport.authenticate() as route middleware to authenticate the
 //   request.  The first step in GitHub authentication will involve redirecting
 //   the user to github.com.  After authorization, GitHubwill redirect the user
 //   back to this application at /auth/github/callback
+///////////////////////////////////////////////////////////////////////////////
 
-app.get('/auth/github', AccountCtl.githubAuth);
-app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
+//app.get('/auth/github', AccountCtl.githubAuth);
+//app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
+
+
 //app.get('/auth/github', passport.authenticate('github'), function(request, response) {
 //    'use strict';
     // The request will be redirected to GitHub for authentication, so this

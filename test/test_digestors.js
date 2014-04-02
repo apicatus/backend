@@ -18,28 +18,83 @@ function loginUser(profle) {
         email: 'admin@admin.com'
     };
     return request(url)
-    .post('/user/signin')
-    .set('Content-Type', 'application/json')
-    .send(profile)
-    .expect('Content-Type', /json/)
-    .expect(200)
+        .post('/user/signin')
+        .set('Content-Type', 'application/json')
+        .send(profile)
+        .expect('Content-Type', /json/)
+        .expect(200);
+};
+function signOutUser(token) {
+    var url = 'http://' + conf.ip + ':' + conf.listenPort;
+    return request(url)
+        .get('/user/signout')
+        .set('Content-Type', 'application/json')
+        .set('token', token)
+        .expect(200)
+};
+function createUser(profile) {
+    var url = 'http://' + conf.ip + ':' + conf.listenPort;
+    var profile = profile || {
+        username: 'admin',
+        password: 'admin',
+        email: 'admin@admin.com'
+    };
+    return request(url)
+        .post('/user')
+        .set('Content-Type', 'application/json')
+        .send(profile)
+        .expect('Content-Type', /json/)
+        .expect(201);
 };
 
 describe('Digestor management tests', function () {
     var cookie = null;
     var token = null;
+    var server = null;
+    var app = null;
     before(function(done) {
         var url = 'http://' + conf.ip + ':' + conf.listenPort;
         var profile = {
             username: 'admin',
             password: 'admin'
         };
-        // Login
-        loginUser().end(function(err, res) {
-            if (err) throw err;
-            res.body.username.should.equal('admin')
-            token = res.body.token.token;
-            return done();
+        function clearCollections() {
+          for (var collection in mongoose.connection.collections) {
+              mongoose.connection.collections[collection].remove(function () {});
+          }
+        }
+        function startServer() {
+            server = require('http').createServer(APP)
+            server.listen(conf.listenPort);
+            return server;
+        }
+        if(mongoose.connection.readyState === 0) {
+            mongoose.connect('mongodb://admin:admin@alex.mongohq.com:10062/cloud-db');
+        } else if(mongoose.connection.readyState === 1) {
+            clearCollections();
+
+            createUser().end(function(err, res) {
+                loginUser().end(function(err, res) {
+                    if (err) throw err;
+                    res.body.username.should.equal('admin')
+                    token = res.body.token.token;
+                    return done();
+                });
+            });
+        }
+
+        mongoose.connection.on("open", function() {
+            clearCollections();
+            server = startServer();
+            // Create user & Login
+            createUser().end(function(err, res) {
+                loginUser().end(function(err, res) {
+                    if (err) throw err;
+                    res.body.username.should.equal('admin')
+                    token = res.body.token.token;
+                    return done();
+                });
+            });
         });
     });
     describe('Resource CRUD Operations', function() {

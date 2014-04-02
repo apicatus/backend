@@ -81,7 +81,7 @@ var Account = new Schema({
 
 Account.plugin(passportLocalMongoose);
 
-Account.statics.findOrCreate = function(conditions, doc, options, callback) {
+/*Account.statics.findOrCreate = function(conditions, doc, options, callback) {
     'use strict';
 
     if (arguments.length < 4) {
@@ -124,7 +124,7 @@ Account.statics.findOrCreate = function(conditions, doc, options, callback) {
             });
         }
     });
-};
+};*/
 
 Account.statics.encode = function(data) {
     'use strict';
@@ -139,7 +139,7 @@ Account.statics.decode = function(data) {
         decoded = jwt.decode(data, tokenSecret);
     }
     catch(error) {
-        console.log(error);
+        //console.log(error);
         decoded = null;
     }
     return decoded;
@@ -147,17 +147,13 @@ Account.statics.decode = function(data) {
 Account.statics.verify = function(token, cb) {
     'use strict';
 
-    var now = new Date();
     var decoded = this.decode(token);
-    var self = this;
     if (decoded && decoded.email) {
         this.findOne({email: decoded.email}, function(error, user) {
             if (error || !user || !user.token) {
-                console.log("error");
                 cb(new Error(error), false);
             } else if (token === user.token.token) {
                 // Verify if token has expired
-                //cb(false, (now.getTime() - user.token.date_created.getTime() < config.ttl), decoded);
                 cb(false, (Token.methods.hasExpired(user.token.date_created.getTime())), decoded);
             }
         });
@@ -249,7 +245,6 @@ Account.statics.deleteUserToken = function(email, cb) {
 Account.statics.invalidateUserToken = function(email, cb) {
     'use strict';
 
-    var self = this;
     this.findOne({email: email}, function(error, user) {
         if(error || !user) {
             console.log('error');
@@ -257,7 +252,7 @@ Account.statics.invalidateUserToken = function(email, cb) {
         }
         user.token = null;
         user.save(function(error, user) {
-            if (error) {
+            if (error || !user) {
                 cb(error, null);
             } else {
                 cb(false, 'removed');

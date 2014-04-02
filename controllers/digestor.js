@@ -163,15 +163,14 @@ exports.create = function (request, response, next) {
     var token = request.headers.token;
 
     if(!token) {
-        response.status(403);
+        response.statusCode = 403;
         response.json({error: 'No auth token received !'});
     }
     // Fail if digestor name is already created
     Digestor.findOne({name: request.body.name}, function(error, digestor) {
         if (error || digestor) {
-            response.status(409);
-            var message = JSON.stringify({error: "existingDigestor", message: 'Digestor already exists'});
-            return response.send(message);
+            response.statusCode = 409;
+            return response.json({error: "existingDigestor", message: 'Digestor already exists'});
         }
         digestor = new Digestor({
             name: request.body.name,
@@ -181,56 +180,40 @@ exports.create = function (request, response, next) {
             endpoints: request.body.endpoints || [],
             owners: []
         });
-
         digestor.save(onSave);
 
         function onSave(error, digestor) {
             if (error || !digestor) {
+                console.log("onSave error", error);
                 return next(error);
             }
             var decoded = Account.decode(token);
             if (decoded && decoded.email) {
                 Account.findOne({email: decoded.email}, function(error, user) {
                     if (error || !user) {
+                        console.log("findOne error", error);
                         return next(error);
                     } else if (token === user.token.token) {
                         // Verify if token has expired
                         user.digestors.push(digestor._id);
                         user.save(function(error, user){
                             if (error) {
+                                console.log("save error", error);
                                 return next(error);
                             }
                             digestor.owners.push(user._id);
                             digestor.save();
-                            response.status(201);
+                            response.statusCode = 201;
                             return response.json(digestor);
                         });
                     }
                 });
             } else {
-                response.status(409);
+                response.statusCode = 409;
                 return response.json({error: 'Token could not be verified!'});
             }
-            /*Account.findById(request.user._id, onFind);
-            function onFind(error, account) {
-                if (error) {
-                    return next(error);
-                }
-                if (!account) {
-                    return next(error);
-                }
-                account.digestors.push(digestor._id);
-                account.save(onSaved);
-                function onSaved(error, station) {
-                    if (error) {
-                        return next(error);
-                    }
-                    response.status(201);
-                    return response.send(JSON.stringify(digestor));
-                }
-            }*/
-            response.status(201);
-            return response.send(JSON.stringify(digestor));
+            response.statusCode = 201;
+            return response.json(digestor);
         }
     });
 };

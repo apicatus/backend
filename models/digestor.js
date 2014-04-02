@@ -58,8 +58,8 @@ var Methods = new Schema({
     consumes: { type: String, required: false },
     method: { type: String, required: true, trim: true },
     proxy: {
-        URI:  { type: String, required: true, trim: true },
-        enabled: { type: Boolean, default: false, required: false }
+        URI:  { type: String, required: false, trim: true },
+        enabled: { type: Boolean, required: false, default: false }
     },
     parameters: [ Parameters ],
     response: {

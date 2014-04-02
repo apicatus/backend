@@ -164,7 +164,7 @@ exports.signOut = function(request, response, next) {
         Account.deleteUserToken(decoded.email, function(error, user) {
             if (error || !user) {
                 response.statusCode = 500;
-                response.json({error: 'Error deleting token'});
+                return next(error);
             } else {
                 response.statusCode = 200;
                 response.json({"title": "sucess", "message": "signout", "status": "ok"});
@@ -333,7 +333,6 @@ exports.resetToken = function(request, response, next) {
     if (request.body.email) {
         Account.generateResetToken(request.body.email, function(error, user) {
             if(error || !user) {
-                console.log("some error")
                 response.statusCode = 500;
                 return next();
             } else {
@@ -411,6 +410,7 @@ passport.use(new GitHubStrategy({
     }
 ));
 
+/*
 exports.githubAuth = function(request, response, next) {
     'use strict';
     passport.authenticate('github', function(request, response, next) {
@@ -443,5 +443,5 @@ exports.githubAuthCallback = function(request, response, next) {
         }
     })(request, response, next);
 };
-
+*/
 

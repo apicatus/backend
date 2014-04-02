@@ -19,23 +19,24 @@ At a high level, the structure looks roughly like this:
 
 ```
 frontend/
-  ├ grunt-tasks/
-  ├ controllers/
-  ├ models/
-  ├ test/
-  │ └ <test code>
-  ├ node_modules/
-  │ └ <libraries>
-  ├ app.js
-  ├ config.js
-  ├ gulpfile.js
-  ├ Makefile
-  ├ package.json
-  ├ .gitignore
-  ├ .jshintrc
-  ├ .travis.yml
-  ├ LICENSE
-  └ README.md
+└─┬─ grunt-tasks/
+  ├─ controllers/
+  ├─ models/
+  ├┬ test/
+  │└─ <test code>
+  ├┬ node_modules/
+  │└─ <libraries>
+  ├─ app.js
+  ├─ config.js
+  ├─ gulpfile.js
+  ├─ Makefile
+  ├─ package.json
+  ├─ .gitignore
+  ├─ .jshintrc
+  ├─ .travis.yml
+  ├─ .editorconfig
+  ├─ LICENSE
+  └─ README.md
 ```
 
 What follows is a brief description of each entry, but most directories contain

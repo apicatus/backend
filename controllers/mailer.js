@@ -37,7 +37,6 @@
 
 // Controllers
 var conf = require('../config'),
-    mongoose = require('mongoose'),
     nodemailer = require("nodemailer");
 
 
@@ -53,13 +52,15 @@ var smtpTransport = nodemailer.createTransport("SMTP",{
 });
 
 exports.sendTemplate = function(message, template, subject, recipients) {
+    'use strict';
+
     var options = {
         from: "Apicatus <webmaster@apicat.us>", // sender address
         to: recipients.join(','), // list of receivers
         subject: subject, // Subject line
         text: message, // plaintext body
         html: template // html body
-    }
+    };
     // send mail with defined transport object
     smtpTransport.sendMail(options, function(error, response) {
         if(error){
