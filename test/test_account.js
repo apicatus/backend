@@ -244,7 +244,7 @@ describe('User admin tests', function () {
         })
     });
     describe('Safety test', function() {
-        it('should fail trying to read a user account without credentials', function(done) {
+        it('should fail trying to read a user account without token', function(done) {
             'user strict'
             var url = 'http://' + conf.ip + ':' + conf.listenPort;
             request(url)
@@ -256,14 +256,14 @@ describe('User admin tests', function () {
                 return done();
             });
         });
-        it('should fail trying to read with invalid credentials', function(done) {
+        it('should fail trying to read with invalid token', function(done) {
             'user strict'
+            var url = 'http://' + conf.ip + ':' + conf.listenPort;
             var falseToken = "this-token-is-invalid"
             request(url)
             .get('/user')
             .set('Content-Type', 'application/json')
             .set('token', falseToken)
-            .expect('Content-Type', /json/)
             .expect(403)
             .end(function(err, res) {
                 if (err) throw err;

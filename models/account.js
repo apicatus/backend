@@ -126,7 +126,15 @@ Account.statics.encode = function(data) {
 Account.statics.decode = function(data) {
     'use strict';
 
-    return jwt.decode(data, tokenSecret);
+    var decoded = null;
+    try {
+        decoded = jwt.decode(data, tokenSecret);
+    }
+    catch(error) {
+        console.log(error);
+        decoded = null;
+    }
+    return decoded;
 };
 Account.statics.verify = function(token, cb) {
     'use strict';
