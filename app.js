@@ -140,10 +140,13 @@ function ensureAuthenticated(request, response, next) {
     var token = request.headers.token;
 
     if(token) {
-        AccountMdl.verify(token, function(error, isValid, decoded) {
-            if(error || !isValid) {
+        AccountMdl.verify(token, function(error, expired, decoded) {
+            if(error) {
                 response.statusCode = 403;
                 response.json({error: 'Invalid token !'});
+            } else if(expired) {
+                response.statusCode = 403;
+                response.json({error: 'Token expired. You need to log in again.'});
             } else {
                 request.decoded = decoded;
                 return next();

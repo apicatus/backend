@@ -177,6 +177,9 @@ describe('User admin tests', function () {
                 });
         });
     });
+    ///////////////////////////////////////////////////////////////////////////
+    // Create user first                                                     //
+    ///////////////////////////////////////////////////////////////////////////
     describe('Authentication', function() {
         it('should be able to login', function(done) {
             var url = 'http://' + conf.ip + ':' + conf.listenPort;
@@ -241,7 +244,19 @@ describe('User admin tests', function () {
                     res.statusCode.should.equal(401);
                     return done();
                 });
-        })
+        });
+        it('should send reset token', function(done) {
+            'user strict'
+            var url = 'http://' + conf.ip + ':' + conf.listenPort;
+            request(url)
+                .post('/user/forgot')
+                .send({email: 'admin@admin.com'})
+                .expect(200)
+                .end(function(err, res) {
+                    if (err) throw err;
+                    return done();
+                });
+        });
     });
     describe('Safety test', function() {
         it('should fail trying to read a user account without token', function(done) {
@@ -269,6 +284,24 @@ describe('User admin tests', function () {
                 if (err) throw err;
                 return done();
             });
+        });
+        it('shouldn\'t be able to crete duplicated users', function(done) {
+            var url = 'http://' + conf.ip + ':' + conf.listenPort;
+            var profile = {
+                username: 'admin',
+                password: 'admin',
+                email: 'admin@admin.com'
+            };
+            request(url)
+                .post('/user')
+                .set('Content-Type', 'application/json')
+                .send(profile)
+                .expect('Content-Type', /json/)
+                .expect(409)
+                .end(function(err, res) {
+                    if (err) throw err;
+                    return done();
+                });
         });
     });
     /*describe('Digestor Management', function () {
