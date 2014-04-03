@@ -18,11 +18,33 @@ function loginUser(profle) {
         email: 'admin@admin.com'
     };
     return request(url)
-    .post('/user/signin')
-    .set('Content-Type', 'application/json')
-    .send(profile)
-    .expect('Content-Type', /json/)
-    .expect(200)
+        .post('/user/signin')
+        .set('Content-Type', 'application/json')
+        .send(profile)
+        .expect('Content-Type', /json/)
+        .expect(200);
+};
+function signOutUser(token) {
+    var url = 'http://' + conf.ip + ':' + conf.listenPort;
+    return request(url)
+        .get('/user/signout')
+        .set('Content-Type', 'application/json')
+        .set('token', token)
+        .expect(200)
+};
+function createUser(profile) {
+    var url = 'http://' + conf.ip + ':' + conf.listenPort;
+    var profile = profile || {
+        username: 'admin',
+        password: 'admin',
+        email: 'admin@admin.com'
+    };
+    return request(url)
+        .post('/user')
+        .set('Content-Type', 'application/json')
+        .send(profile)
+        .expect('Content-Type', /json/)
+        .expect(201);
 };
 
 describe('User admin tests', function () {
@@ -202,6 +224,15 @@ describe('User admin tests', function () {
                 password: 'admin',
                 email: 'admin@admin.com'
             };
+            createUser(profile).end(function(err, res) {
+                loginUser(profile).end(function(err, res) {
+                    if (err) throw err;
+                    res.body.username.should.equal('admin')
+                    token = res.body.token.token;
+                    return done();
+                });
+            });
+            /*
             request(url)
                 .post('/user')
                 .set('Content-Type', 'application/json')
@@ -209,6 +240,7 @@ describe('User admin tests', function () {
                 .expect('Content-Type', /json/)
                 .expect(201)
                 .end(function(err, res) {
+                    console.log(res.body)
                     if (err) throw err;
                     res.statusCode.should.equal(201);
                     res.body.username.should.equal('admin')
@@ -223,6 +255,7 @@ describe('User admin tests', function () {
                             return done();
                         });
                 });
+            */
         });
         it('should be able to signout', function(done) {
             var url = 'http://' + conf.ip + ':' + conf.listenPort;
