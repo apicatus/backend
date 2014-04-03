@@ -213,8 +213,8 @@ app.post('/digestors', ensureAuthenticated, DigestorCtl.create);
 app.get('/digestors', ensureAuthenticated, DigestorCtl.read);
 app.delete('/digestors', ensureAuthenticated, DigestorCtl.deleteAll);
 // Entities
-app.get('/digestors/:name', ensureAuthenticated, DigestorCtl.readOne);
-app.put('/digestors/:name', ensureAuthenticated, DigestorCtl.updateOne);
+app.get('/digestors/:id', ensureAuthenticated, DigestorCtl.readOne);
+app.put('/digestors/:id', ensureAuthenticated, DigestorCtl.updateOne);
 app.delete('/digestors/:name', ensureAuthenticated, DigestorCtl.deleteOne);
 
 

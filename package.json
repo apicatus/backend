@@ -39,7 +39,7 @@
     "gulp-nodemon": "~1"
   },
   "scripts": {
-    "test": "make test-cov"
+    "test": "make test-cov-local"
   },
   "engines": {
     "node": ">= 0.6"

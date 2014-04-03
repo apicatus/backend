@@ -129,7 +129,7 @@ exports.readOne = function (request, response, next) {
             return next();
         }
         Digestor
-        .findOne({$and: [{name: request.params.name}, {owners: user._id}]}) //
+        .findOne({$and: [{_id: request.params.id}, {owners: user._id}]}) //
         .exec(function(error, digestor) {
             if (error) {
                 response.statusCode = 500;
@@ -234,13 +234,13 @@ exports.updateOne = function (request, response, next) {
     'use strict';
 
     var token = request.headers.token;
-
+    delete request.body._id;
     function gotUser(error, user) {
         if (error || !user) {
             response.statusCode = 500;
             return next();
         }
-        Digestor.findOneAndUpdate({$and: [{name: request.params.name}, {owners: user._id}]}, request.body)
+        Digestor.findOneAndUpdate({$and: [{_id: request.params.id}, {owners: user._id}]}, request.body)
         .exec(function (error, digestor) {
             if (error) {
                 response.statusCode = 500;

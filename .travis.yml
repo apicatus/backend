@@ -8,8 +8,8 @@ only:
     - dev
     - master
 before_script:
+    - npm install -g gulp
     - npm install -g istanbul
     - npm install -g mocha
 after_success:
-    - make test-cov
-    - make coveralls
+    - make test-cov-remote

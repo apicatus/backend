@@ -52,6 +52,7 @@ describe('Digestor management tests', function () {
     var token = null;
     var server = null;
     var app = null;
+    var digestorId = null; // ID of Digestor to pass around
     before(function(done) {
         var url = 'http://' + conf.ip + ':' + conf.listenPort;
         var profile = {
@@ -112,7 +113,9 @@ describe('Digestor management tests', function () {
                 .expect(201)
                 .end(function(err, res) {
                     if (err) throw err;
+                    res.body._id.should.match(/^[0-9a-fA-F]{24}$/);
                     res.body.name.should.equal('myDigestor');
+                    digestorId = res.body._id;
                     return done();
                 });
         });
@@ -139,7 +142,7 @@ describe('Digestor management tests', function () {
                 name: 'myDigestor'
             };
             request(url)
-                .get('/digestors/' + digestor.name)
+                .get('/digestors/' + digestorId)
                 .set('token', token)
                 .expect('Content-Type', /json/)
                 .expect(200)
@@ -159,22 +162,27 @@ describe('Digestor management tests', function () {
                 hits: 33
             };
             request(url)
-                .put('/digestors/' + digestor.name)
+                .put('/digestors/' + digestorId)
                 .set('token', token)
                 .send(digestor)
                 .expect('Content-Type', /json/)
                 .expect(200)
                 .end(function(err, res) {
                     if (err) throw err;
-                    res.statusCode.should.equal(200)
+                    res.statusCode.should.equal(200);
+                    res.body.name.should.equal('myDigestor');
+                    res.body._id.should.match(/^[0-9a-fA-F]{24}$/); // mongodb ObjectId
+                    digestorId = res.body._id;
                     request(url)
-                        .get('/digestors/' + digestor.name)
+                        .get('/digestors/' + digestorId)
                         .set('token', token)
                         .expect('Content-Type', /json/)
                         .expect(200)
                         .end(function(err, res) {
                             if (err) throw err;
                             res.statusCode.should.equal(200);
+                            res.body.name.should.equal('myDigestor');
+                            res.body._id.should.match(/^[0-9a-fA-F]{24}$/); // mongodb ObjectId
                             res.body.hits.should.equal(33);
                             return done();
                         });
@@ -186,7 +194,7 @@ describe('Digestor management tests', function () {
                 name: 'myDigestor'
             };
             request(url)
-                .del('/digestors/' + digestor.name)
+                .del('/digestors/' + digestorId)
                 .set('token', token)
                 .expect(204)
                 .end(function(err, res) {
@@ -218,7 +226,7 @@ describe('Digestor management tests', function () {
                 name: 'myDigestor'
             };
             request(url)
-                .get('/digestors/' + digestor.name)
+                .get('/digestors/' + digestorId)
                 .set('token', token)
                 .expect('Content-Type', /json/)
                 .expect(404)
