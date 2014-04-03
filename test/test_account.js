@@ -57,7 +57,12 @@ describe('User admin tests', function () {
 
         mongoose.connection.on("open", function() {
             clearCollections();
-            server = startServer();
+            try {
+                server = startServer();
+            } catch(error) {
+                console.log("PORT OPEN ?");
+                return done();
+            }
             done();
         });
     });

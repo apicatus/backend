@@ -1,5 +1,5 @@
 TESTS_LOCAL = test/test_*.js
-TESTS_REMOTE = test/test_account.js test/test_digestors.js
+TESTS_REMOTE = test/test_account.js
 REPORTER = spec
 XML_FILE = reports/TEST-all.xml
 HTML_FILE = reports/coverage.html
