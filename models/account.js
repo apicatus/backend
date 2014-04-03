@@ -79,7 +79,14 @@ var Account = new Schema({
     reset_token_expires_millis: {type: Number}
 });
 
-Account.plugin(passportLocalMongoose);
+// About password security read:
+// http://security.stackexchange.com/questions/31564/key-length-and-hash-function-in-pbkdf2
+// http://stackoverflow.com/questions/17218089/salt-and-hash-using-pbkdf2
+Account.plugin(passportLocalMongoose, {
+    saltlen: 32,        // specifies the salt length in bytes
+    iterations: 15000,  // specifies the number of iterations used in pbkdf2 hashing algorithm.
+    keylen: 512         // specifies the length in byte of the generated key
+});
 
 /*Account.statics.findOrCreate = function(conditions, doc, options, callback) {
     'use strict';
@@ -154,7 +161,17 @@ Account.statics.verify = function(token, cb) {
                 cb(new Error(error), false);
             } else if (token === user.token.token) {
                 // Verify if token has expired
-                cb(false, (Token.methods.hasExpired(user.token.date_created.getTime())), decoded);
+                user = {
+                     _id: user._id,
+                    email: user.email,
+                    token: user.token,
+                    date_created: user.date_created,
+                    full_name: user.full_name,
+                    username: user.username,
+                    avatar: user.avatar,
+                    digestors: user.digestors
+                };
+                cb(false, (Token.methods.hasExpired(user.token.date_created.getTime())), user);
             }
         });
     } else {

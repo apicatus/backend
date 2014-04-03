@@ -148,7 +148,7 @@ function ensureAuthenticated(request, response, next) {
                 response.statusCode = 403;
                 response.json({error: 'Token expired. You need to log in again.'});
             } else {
-                request.decoded = decoded;
+                request.user = decoded;
                 return next();
             }
         });

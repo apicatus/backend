@@ -38,25 +38,22 @@
 var conf = require('../config'),
     mongoose = require('mongoose'),
     passport = require('passport'),
-    Mailer = require('../controllers/mailer'),
+    Mailer = require('../controllers/mailer')/*,
     GitHubStrategy = require('passport-github').Strategy,
-    GitHubApi = require("github");
+    GitHubApi = require("github")*/;
 
 // Load model
 var account_schema = require('../models/account'),
     Account = mongoose.model('Account', account_schema);
 
-var GITHUB_CLIENT_ID = conf.oAuthServices.github.clientId;
-var GITHUB_CLIENT_SECRET = conf.oAuthServices.github.clientSecret;
-
-var github = new GitHubApi({
+/*var github = new GitHubApi({
     // required
     version: "3.0.0",
     // optional
     debug: true,
     timeout: 5000
 });
-
+*/
 
 ///////////////////////////////////////////////////////////////////////////////
 // passport session setup & strategy                                         //
@@ -80,7 +77,7 @@ passport.deserializeUser(Account.deserializeUser());
 // profile), and invoke a callback with a user object.                       //
 ///////////////////////////////////////////////////////////////////////////////
 
-passport.use(new GitHubStrategy({
+/*passport.use(new GitHubStrategy({
         clientID: GITHUB_CLIENT_ID,
         clientSecret: GITHUB_CLIENT_SECRET,
         callbackURL: "http://" + conf.baseUrl + ":" + conf.listenPort + "/auth/github/callback",
@@ -105,7 +102,7 @@ passport.use(new GitHubStrategy({
             return done(null, profile);
         });
     }
-));
+));*/
 ///////////////////////////////////////////////////////////////////////////////
 // Route to Account signin                                                   //
 //                                                                           //
@@ -157,11 +154,8 @@ exports.signIn = function(request, response, next) {
 exports.signOut = function(request, response, next) {
     'use strict';
     //request.logout();
-    var incomingToken = request.headers.token;
-    var decoded = Account.decode(incomingToken);
-
-    if (decoded && decoded.email) {
-        Account.deleteUserToken(decoded.email, function(error, user) {
+    if (request.user.email) {
+        Account.deleteUserToken(request.user.email, function(error, user) {
             if (error || !user) {
                 response.statusCode = 500;
                 return next(error);
@@ -172,7 +166,7 @@ exports.signOut = function(request, response, next) {
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding incoming token.'});
+        response.json({error: 'Error decoding api token.'});
     }
 };
 ///////////////////////////////////////////////////////////////////////////////
@@ -190,21 +184,27 @@ exports.signOut = function(request, response, next) {
 exports.read = function(request, response, next) {
     'use strict';
 
-    var incomingToken = request.headers.token;
-    var decoded = Account.decode(incomingToken);
-
-    if (decoded && decoded.email) {
-        Account.findUser(decoded.email, incomingToken, function(error, user) {
-            if (error || !user) {
-                response.statusCode = 500;
-                return next(error);
-            } else {
-                return response.json(user);
-            }
+    if (request.user.email) {
+        // Marshall the user object
+        return response.json({
+            _id: request.user._id,
+            username: request.user.username,
+            email: request.user.email,
+            name: request.user.name,
+            lastName: request.user.lastName,
+            country: request.user.country,
+            city: request.user.city,
+            timeZone: request.user.timeZone,
+            avatar: request.user.avatar,
+            company: request.user.company,
+            birthDate: request.user.birthDate,
+            createdAt: request.user.createdAt,
+            updatedAt: request.user.updatedAt,
+            digestors: request.user.digestors
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding incoming token.'});
+        response.json({error: 'Error decoding api token.'});
     }
 };
 
@@ -266,11 +266,8 @@ exports.create = function(request, response, next) {
 exports.update = function(request, response, next) {
     'use strict';
 
-    var incomingToken = request.headers.token;
-    var decoded = Account.decode(incomingToken);
-
-    if (decoded && decoded.email) {
-        Account.findOneAndUpdate({email: decoded.email}, request.body)
+    if (request.user.email) {
+        Account.findOneAndUpdate({email: request.user.email}, request.body)
         .exec(function(error, user) {
             if (error) {
                 response.statusCode = 500;
@@ -287,7 +284,7 @@ exports.update = function(request, response, next) {
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding incoming token.'});
+        response.json({error: 'Error decoding api token.'});
     }
 };
 
@@ -306,11 +303,8 @@ exports.update = function(request, response, next) {
 exports.delete = function(request, response, next) {
     'use strict';
 
-    var incomingToken = request.headers.token;
-    var decoded = Account.decode(incomingToken);
-
-    if (decoded && decoded.email) {
-        Account.findOneAndRemove({email: decoded.email})
+    if (request.user.email) {
+        Account.findOneAndRemove({email: request.user.email})
         .exec(function(error) {
             if (error) {
                 response.statusCode = 500;
@@ -323,7 +317,7 @@ exports.delete = function(request, response, next) {
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding incoming token.'});
+        response.json({error: 'Error decoding api token.'});
     }
 };
 
@@ -364,9 +358,9 @@ exports.resetToken = function(request, response, next) {
 // profile), and invoke a callback with a user object.                       //
 ///////////////////////////////////////////////////////////////////////////////
 
-passport.use(new GitHubStrategy({
-        clientID: GITHUB_CLIENT_ID,
-        clientSecret: GITHUB_CLIENT_SECRET,
+/*passport.use(new GitHubStrategy({
+        clientID: conf.oAuthServices.github.clientId,
+        clientSecret: conf.oAuthServices.github.clientSecret,
         callbackURL: "http://miapi.com:8080/auth/github/callback",
         scope: ['user']
     },
@@ -408,7 +402,7 @@ passport.use(new GitHubStrategy({
             //return done(null, profile);
         //});
     }
-));
+));*/
 
 /*
 exports.githubAuth = function(request, response, next) {
