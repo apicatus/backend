@@ -94,7 +94,7 @@ var environments = {
         autoStart: true,
         ttl: 3600000,
         resetTokenExpiresMinutes: 20,
-        staticPath: "./frontend/build",
+        staticPath: "./frontend/bin",
         mongoUrl: {
             hostname: "paulo.mongohq.com",
             port: 10026,
