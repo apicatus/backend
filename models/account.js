@@ -84,7 +84,7 @@ var Account = new Schema({
 // http://stackoverflow.com/questions/17218089/salt-and-hash-using-pbkdf2
 Account.plugin(passportLocalMongoose, {
     saltlen: 32,        // specifies the salt length in bytes
-    iterations: 15000,  // specifies the number of iterations used in pbkdf2 hashing algorithm.
+    iterations: 25000,  // specifies the number of iterations used in pbkdf2 hashing algorithm.
     keylen: 512         // specifies the length in byte of the generated key
 });
 

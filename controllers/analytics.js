@@ -81,11 +81,26 @@ exports.metrics = function (request, response, next) {
             emit(this.digestor, this.time);
         },
         reduce: function(key, values) {
+            var res = {
+                min: values[0],
+                max: values[0]
+            }
+            for ( var i = 1; i < values.length; i++ ) {
+                if ( values[i] < res.min )
+                   res.min = values[i];
+                if ( values[i] > res.max )
+                   res.max = values[i];
+            }
             return {
                 "sum": Array.sum(values),
                 "avg": Array.avg(values),
                 "stdDev": Array.stdDev(values),
+                "max": res.max,
+                "min": res.min
             };
+        },
+        finalize: function(key, value) {
+            return value;
         },
         out: { inline: 1 },
         verbose: true,
