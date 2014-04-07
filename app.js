@@ -47,6 +47,7 @@ var http = require('http'),
     AccountCtl = require('./controllers/account'),
     DigestorCtl = require('./controllers/digestor'),
     LogsCtl = require('./controllers/logs'),
+    Analytics = require('./controllers/analytics'),
     passport = require('passport'),
     DigestCtl = require('./controllers/digest'),
     Importer = require('./controllers/importer');
@@ -267,6 +268,12 @@ app.get('/user/reset/:id/:email', function(req, res) {
         res.render('resetpass', {email: email});
     }
 });
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Analytics                                                                 //
+///////////////////////////////////////////////////////////////////////////////
+app.get('/metrics', Analytics.metrics);
 ///////////////////////////////////////////////////////////////////////////////
 //   Use passport.authenticate() as route middleware to authenticate the
 //   request.  The first step in GitHub authentication will involve redirecting
@@ -298,7 +305,8 @@ app.get('/user/reset/:id/:email', function(req, res) {
 ///////////////////////////////////////////////////////////////////////////////
 // API Model Importer service                                                //
 ///////////////////////////////////////////////////////////////////////////////
-app.post('/importer/blueprint', ensureAuthenticated, Importer.blueprint);
+app.post('/import/blueprint', ensureAuthenticated, Importer.blueprint);
+app.post('/import/test', ensureAuthenticated, Importer.test);
 
 ///////////////////////////////////////////////////////////////////////////////
 // socket.io                                                                 //

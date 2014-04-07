@@ -77,6 +77,7 @@ var Endpoints = new Schema({
 });
 var Digestor = new Schema({
     name: { type: String, required: true, trim: true },
+    synopsis: { type: String, required: true, trim: true },
     type: { type: String, required: false, default: "REST" },
     version: { type: String, required: false },
     domain: { type: String, required: false },
