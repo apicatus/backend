@@ -65,19 +65,20 @@ var Methods = new Schema({
     response: {
         statusCode: { type: Number, required: false, default: 200, min: 100, max: 600},
         headers: { type: Object, required: false },
-        message: { type: String, required: false },
+        // TODO: convert to Buffer
+        body: { type: String, required: false },
         contentType: { type: String, required: false }
     },
     authorizations: [Authorizations]
 });
 var Endpoints = new Schema({
-    name: { type: String, required: true, trim: true },
+    name: { type: String, required: false, default: "E Name", trim: true },
     synopsis: { type: String, required: false },
     methods: [ Methods ]
 });
 var Digestor = new Schema({
     name: { type: String, required: true, trim: true },
-    synopsis: { type: String, required: true, trim: true },
+    synopsis: { type: String, required: false, default: "Api description", trim: true },
     type: { type: String, required: false, default: "REST" },
     version: { type: String, required: false },
     domain: { type: String, required: false },

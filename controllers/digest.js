@@ -221,7 +221,7 @@ exports.digestRequest = function(request, response, next) {
                 response.set('content-type', method.response.contentType || 'application/json');
                 response.statusCode = method.response.statusCode || 200;
                 // Allow raw data to be sent unless Content-Type is previously defined
-                response.send(new Buffer(method.response.message));
+                response.send(new Buffer(method.response.body));
             }
         } else {
             response.statusCode = 404;

@@ -93,7 +93,11 @@ exports.blueprint = function (request, response, next) {
 
         var api = {
             name: model.ast.name,
-            synopsis: model.ast.description
+            synopsis: model.ast.description,
+            enabled: true,
+            public: false,
+            created: new Date(),
+            owners: []
         };
 
         api.endpoints = model.ast.resourceGroups.map(function(resourceGroup, i){
@@ -101,13 +105,13 @@ exports.blueprint = function (request, response, next) {
                 return {
                     name: resource.name,
                     synopsis: resource.description,
-                    URI: resource.uriTemplate,
+                    URI: resource.uriTemplate.split('{?')[0].replace(new RegExp('}','g'), '').replace(new RegExp('{','g'), ':'),
                     methods: resource.actions.map(function(action, index){
                         return {
                             method: action.method,
                             name: action.name,
                             synopsis: action.description,
-                            URI: resource.uriTemplate,
+                            URI: resource.uriTemplate.split('{?')[0].replace(new RegExp('}','g'), '').replace(new RegExp('{','g'), ':'),
                             parameters: action.parameters.map(function(parameter, index){
                                 return {
                                     name: parameter.name,
@@ -119,7 +123,14 @@ exports.blueprint = function (request, response, next) {
                                 return example.responses.map(function(response, index){
                                     return {
                                         body: response.body,
-                                        headers: response.headers,
+                                        headers: response.headers.filter(function(header, index){
+                                            return header.name.toLowerCase() !== 'content-type'
+                                        }),
+                                        contentType: (function(contentType) {
+                                            return (contentType.length > 0) ? contentType[0].value : 'application/json';
+                                        })(response.headers.filter(function(header, index){
+                                            return header.name.toLowerCase() === 'content-type'
+                                        })),
                                         statusCode: response.name,
                                         synopsis: response.description
                                     };
@@ -128,7 +139,7 @@ exports.blueprint = function (request, response, next) {
                         };
                     }),
                 };
-            });
+            })[0];
         });
         return api;
     };
