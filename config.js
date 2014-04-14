@@ -26,6 +26,10 @@ var environments = {
         allowCrossDomain: false,
         autoStart: true,
         ttl: (1000 * 60 * 100), // 10 minutes
+        rateLimits: {
+            ttl: 10 * 60 * 1000, // 10 mins
+            maxHits: 6
+        },
         resetTokenExpiresMinutes: 20,
         staticPath: "/Users/benjius/Desktop/apicatus/frontend/build",
         mongoUrl: {
@@ -60,6 +64,10 @@ var environments = {
         allowCrossDomain: false,
         autoStart: false,
         ttl: (1000 * 60 * 100),
+        rateLimits: {
+            ttl: 10 * 60 * 1000, // 10 mins
+            maxHits: 600
+        },
         resetTokenExpiresMinutes: 20,
         staticPath: "/frontend/build",
         mongoUrl: {
@@ -93,6 +101,10 @@ var environments = {
         allowCrossDomain: false,
         autoStart: true,
         ttl: 3600000,
+        rateLimits: {
+            ttl: 10 * 60 * 1000, // 10 mins
+            maxHits: 600
+        },
         resetTokenExpiresMinutes: 20,
         staticPath: "./frontend/bin",
         mongoUrl: {
