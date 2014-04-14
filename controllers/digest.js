@@ -39,7 +39,8 @@ var DigestorMdl = require('../models/digestor'),
     url = require('url'),
     config = require('../config'),
     http = require('http'),
-    https = require('https');
+    https = require('https'),
+    Throttle = require('../services/throttle');
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -103,7 +104,7 @@ exports.pathMatch = function(route, path) {
 exports.digestRequest = function(request, response, next) {
     'use strict';
 
-    // console.log("digest");
+    console.log("digest");
     if (!request.headers.host) {
         console.log("skip digest");
         return next();
@@ -221,7 +222,12 @@ exports.digestRequest = function(request, response, next) {
                 response.set('content-type', method.response.contentType || 'application/json');
                 response.statusCode = method.response.statusCode || 200;
                 // Allow raw data to be sent unless Content-Type is previously defined
-                response.send(new Buffer(method.response.body));
+                if(method.response.body) {
+                    response.send(new Buffer(method.response.body));
+                } else {
+                    // Send empty response
+                    response.send(new Buffer(""));
+                }
             }
         } else {
             response.statusCode = 404;
