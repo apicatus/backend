@@ -27,8 +27,8 @@ var environments = {
         autoStart: true,
         ttl: (1000 * 60 * 100), // 10 minutes
         rateLimits: {
-            ttl: 10 * 60 * 1000, // 10 mins
-            maxHits: 6
+            ttl: 60 * 10, // 10 mins
+            maxHits: 600
         },
         resetTokenExpiresMinutes: 20,
         staticPath: "/Users/benjius/Desktop/apicatus/frontend/build",
@@ -65,7 +65,7 @@ var environments = {
         autoStart: false,
         ttl: (1000 * 60 * 100),
         rateLimits: {
-            ttl: 10 * 60 * 1000, // 10 mins
+            ttl: 60 * 10, // 10 mins
             maxHits: 600
         },
         resetTokenExpiresMinutes: 20,
@@ -102,7 +102,7 @@ var environments = {
         autoStart: true,
         ttl: 3600000,
         rateLimits: {
-            ttl: 10 * 60 * 1000, // 10 mins
+            ttl: 60 * 10, // 10 mins
             maxHits: 600
         },
         resetTokenExpiresMinutes: 20,

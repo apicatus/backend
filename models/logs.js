@@ -50,7 +50,8 @@ var Logs = new Schema({
     date: { type: Date, default: Date.now },
     time: {type: Number, default: 0, required: true},
     method: { type: Schema.Types.ObjectId, ref: 'Methods' },
-    digestor: { type: Schema.Types.ObjectId, ref: 'Methods' }
+    digestor: { type: Schema.Types.ObjectId, ref: 'Methods' },
+    geo: {type: Object},
 });
 
 module.exports = mongoose.model('Logs', Logs);

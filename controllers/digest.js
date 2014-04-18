@@ -39,8 +39,7 @@ var DigestorMdl = require('../models/digestor'),
     url = require('url'),
     config = require('../config'),
     http = require('http'),
-    https = require('https'),
-    Throttle = require('../services/throttle');
+    https = require('https');
 
 
 ///////////////////////////////////////////////////////////////////////////////

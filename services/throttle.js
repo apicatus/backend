@@ -44,20 +44,9 @@ var config = require('../config'),
 var RateBuckets_schema = require('../models/throttle'),
     RateBuckets = mongoose.model('RateBuckets', RateBuckets_schema);
 
-/*
-var Throttle = module.exports = function(key, options) {
-    this.key = key
-
-    options = options || {}
-    this.span = options.span || 15 * 60 * 1000 // 15 mins
-    this.accuracy = options.accuracy || 10
-    this.interval = this.span / this.accuracy
-}
-*/
-//db.throttle.ensureIndex( { "createdAt": 1 }, { expireAfterSeconds: 3600 } )
-
 exports.throttle = function(request, response, next) {
     'use strict';
+
     var ip = request.headers['x-forwarded-for'] ||
         request.connection.remoteAddress ||
         request.socket.remoteAddress ||
@@ -84,8 +73,7 @@ exports.throttle = function(request, response, next) {
                         response.statusCode = 500;
                         return response.json({error: "RateLimit", message: 'Cant\' create rate limit bucket'});
                     }
-                    var timeUntilReset = config.rateLimits.ttl - (new Date().getTime() - rateBucket.createdAt.getTime());
-                    console.log(JSON.stringify(rateBucket, null, 4));
+                    var timeUntilReset = (config.rateLimits.ttl * 1000) - (new Date().getTime() - rateBucket.createdAt.getTime());
                     // the rate limit ceiling for that given request
                     response.set('X-Rate-Limit-Limit', config.rateLimits.maxHits);
                     // the number of requests left for the time window
@@ -97,9 +85,8 @@ exports.throttle = function(request, response, next) {
                     return next();
                 });
             } else {
-                var timeUntilReset = config.rateLimits.ttl - (new Date().getTime() - rateBucket.createdAt.getTime());
+                var timeUntilReset = (config.rateLimits.ttl * 1000) - (new Date().getTime() - rateBucket.createdAt.getTime());
                 var remaining =  Math.max(0, (config.rateLimits.maxHits - rateBucket.hits));
-                console.log(JSON.stringify(rateBucket, null, 4));
                 // the rate limit ceiling for that given request
                 response.set('X-Rate-Limit-Limit', config.rateLimits.maxHits);
                 // the number of requests left for the time window
@@ -119,73 +106,3 @@ exports.throttle = function(request, response, next) {
         });
 
 };
-/*Account.statics.findOrCreate = function(conditions, doc, options, callback) {
-    'use strict';
-
-    if (arguments.length < 4) {
-        if (typeof options === 'function') {
-            // Scenario: findOrCreate(conditions, doc, callback)
-            callback = options;
-            options = {};
-        } else if (typeof doc === 'function') {
-            // Scenario: findOrCreate(conditions, callback);
-            callback = doc;
-            doc = {};
-            options = {};
-        }
-    }
-    var self = this;
-    this.findOne(conditions, function (err, result) {
-        if (err || result) {
-            if (options && options.upsert && !err) {
-                self.update(conditions, doc, function (err) {
-                    if (err) {
-                        console.log("error");
-                        callback(new Error(err), false);
-                    } else {
-                        self.findOne(conditions, function (err, result) {
-                            callback(err, result, false);
-                        });
-                    }
-                });
-            } else {
-                callback(err, result, false);
-            }
-        } else {
-            for (var key in doc) {
-                conditions[key] = doc[key];
-            }
-            console.log("conditions:", JSON.stringify(conditions, null, 4));
-            var obj = new self(conditions);
-            obj.save(function (err) {
-                callback(err, obj, true);
-            });
-        }
-    });
-};*/
-
-/*
-db.throttle.ensureIndex({"createdAt": 1}, {expireAfterSeconds: 60})
-
-
-db.throttle.insert( {
-    "createdAt": new Date(),
-    "ip": "192.168.1.1",
-    "token": "123456",
-    "userid": "benjamin",
-    "api": "MyApi",
-    "hits": 1
-})
-
-db.throttle.findAndModify({
-    query: { token: "123456" },
-    update: { $inc: { hits: 1 } },
-    upsert: true
-})
-
-
-response.set('X-Rate-Limit-Limit', header.value); // the rate limit ceiling for that given request
-response.set('X-Rate-Limit-Remaining', header.value); // the number of requests left for the time window
-response.set('X-Rate-Limit-Reset', header.value); // the remaining window before the rate limit resets in UTC epoch seconds
-*/
-// HTTP 429 “Too Many Requests”

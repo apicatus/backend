@@ -36,7 +36,8 @@
 
 // Controllers
 var mongoose = require('mongoose'),
-    url = require('url');
+    url = require('url'),
+    freegeoip = require('../services/freegeoip');
 
 // Load model
 var logs_schema = require('../models/logs'),
@@ -168,7 +169,10 @@ exports.create = function (request, response, next) {
         log.status = response.statusCode;
         log.responseStatus = response.statusCode;
         //log.responseBody = response.statusCode;
-        log.save(onSave);
+        freegeoip.getLocation(ip, function(err, geo) {
+            log.geo = geo;
+            log.save(onSave);
+        });
         // console.log("response finish: ", log.time, "ms, length", response.getHeader('Content-Length'));
     }
     response.on('finish', logRequest);

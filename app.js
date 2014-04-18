@@ -50,7 +50,8 @@ var http = require('http'),
     Analytics = require('./controllers/analytics'),
     passport = require('passport'),
     DigestCtl = require('./controllers/digest'),
-    Importer = require('./controllers/importer');
+    Importer = require('./controllers/importer'),
+    Throttle = require('./services/throttle');
 
 ///////////////////////////////////////////////////////////////////////////////
 // Run app                                                                   //
@@ -134,6 +135,13 @@ var allowCrossDomain = function(request, response, next) {
         next();
     }
 };
+
+// Rate limit middleware
+
+function checkRate(request, response, next) {
+    'use strict';
+
+}
 // reusable middleware to test authenticated sessions
 function ensureAuthenticated(request, response, next) {
     'use strict';
@@ -185,6 +193,7 @@ app.configure(function() {
     app.use(passport.session());
     app.use(allowCrossDomain);
     app.use(app.router);
+    app.use(Throttle.throttle);
     app.use(DigestCtl.digestRequest);
     app.use(express.static(conf.staticPath));
 });
@@ -274,6 +283,10 @@ app.get('/user/reset/:id/:email', function(req, res) {
 // Analytics                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 app.get('/metrics', Analytics.metrics);
+
+app.get('/throttle', Throttle.throttle, function(req, res) {
+    res.json({message: "hello throttle"});
+});
 ///////////////////////////////////////////////////////////////////////////////
 //   Use passport.authenticate() as route middleware to authenticate the
 //   request.  The first step in GitHub authentication will involve redirecting
