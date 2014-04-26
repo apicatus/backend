@@ -162,7 +162,7 @@ Account.statics.verify = function(token, cb) {
             } else if (token === user.token.token) {
                 // Verify if token has expired
                 user = {
-                     _id: user._id,
+                    _id: user._id,
                     email: user.email,
                     token: user.token,
                     date_created: user.date_created,
@@ -186,7 +186,7 @@ Account.statics.findUser = function(email, token, cb) {
             cb(error, null);
         } else if (token === user.token.token) {
             cb(false, {
-                 _id: user._id,
+                _id: user._id,
                 email: user.email,
                 token: user.token,
                 date_created: user.date_created,

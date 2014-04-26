@@ -283,6 +283,11 @@ app.get('/user/reset/:id/:email', function(req, res) {
 // Analytics                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 app.get('/metrics', Analytics.metrics);
+app.get('/geo', Analytics.geo);
+app.get('/languages', Analytics.languages);
+app.get('/platform', Analytics.platform);
+
+
 
 app.get('/throttle', Throttle.throttle, function(req, res) {
     res.json({message: "hello throttle"});
