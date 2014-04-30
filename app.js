@@ -286,6 +286,10 @@ app.get('/metrics', Analytics.metrics);
 app.get('/geo', Analytics.geo);
 app.get('/languages', Analytics.languages);
 app.get('/platform', Analytics.platform);
+app.get('/contentlength', Analytics.contentLength);
+app.get('/contentlength2', Analytics.contentLength2);
+app.get('/performance', Analytics.performance);
+app.get('/metrics/:id/performance', Analytics.performance);
 
 
 

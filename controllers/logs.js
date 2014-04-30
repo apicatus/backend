@@ -146,7 +146,6 @@ exports.create = function (request, response, next) {
         requestBody: request.body,
         responseHeaders: {},
         responseBody: {},
-        responseStatus: 0,
         status: 0,
         date: new Date(),
         time: 0
@@ -167,7 +166,13 @@ exports.create = function (request, response, next) {
         log.time = new Date().getTime() - log.date.getTime();
         log.responseHeaders = response._headers;
         log.status = response.statusCode;
-        log.responseStatus = response.statusCode;
+        // Convert content-length to numbers
+        if(log.requestHeaders['content-length']) {
+            log.requestHeaders['content-length'] = parseInt(log.requestHeaders['content-length'], 10);
+        }
+        if(log.responseHeaders['content-length']) {
+            log.responseHeaders['content-length'] = parseInt(log.responseHeaders['content-length'], 10);
+        }
         //log.responseBody = response.statusCode;
         freegeoip.getLocation(ip, function(err, geo) {
             log.geo = geo;

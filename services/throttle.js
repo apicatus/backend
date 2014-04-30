@@ -53,56 +53,55 @@ exports.throttle = function(request, response, next) {
         request.connection.socket.remoteAddress;
 
     RateBuckets
-        .findOneAndUpdate({ip: ip}, { $inc: { hits: 1 } }, { upsert: false })
-        .exec(function(error, rateBucket) {
-            if (error) {
-                response.statusCode = 500;
-                return next(error);
-            }
-            if(!rateBucket) {
-                rateBucket = new RateBuckets({
-                    createdAt: new Date(),
-                    ip: ip
-                });
-                rateBucket.save(function(error, rateBucket) {
-                    if (error) {
-                        response.statusCode = 500;
-                        return next(error);
-                    }
-                    if(!rateBucket) {
-                        response.statusCode = 500;
-                        return response.json({error: "RateLimit", message: 'Cant\' create rate limit bucket'});
-                    }
-                    var timeUntilReset = (config.rateLimits.ttl * 1000) - (new Date().getTime() - rateBucket.createdAt.getTime());
-                    // the rate limit ceiling for that given request
-                    response.set('X-Rate-Limit-Limit', config.rateLimits.maxHits);
-                    // the number of requests left for the time window
-                    response.set('X-Rate-Limit-Remaining', config.rateLimits.maxHits - 1);
-                    // the remaining window before the rate limit resets in miliseconds
-                    response.set('X-Rate-Limit-Reset', timeUntilReset);
-                    // Return bucket so other routes can use it
-                    request.rateBucket = rateBucket;
-                    return next();
-                });
-            } else {
+    .findOneAndUpdate({ip: ip}, { $inc: { hits: 1 } }, { upsert: false })
+    .exec(function(error, rateBucket) {
+        if (error) {
+            response.statusCode = 500;
+            return next(error);
+        }
+        if(!rateBucket) {
+            rateBucket = new RateBuckets({
+                createdAt: new Date(),
+                ip: ip
+            });
+            rateBucket.save(function(error, rateBucket) {
+                if (error) {
+                    response.statusCode = 500;
+                    return next(error);
+                }
+                if(!rateBucket) {
+                    response.statusCode = 500;
+                    return response.json({error: "RateLimit", message: 'Cant\' create rate limit bucket'});
+                }
                 var timeUntilReset = (config.rateLimits.ttl * 1000) - (new Date().getTime() - rateBucket.createdAt.getTime());
-                var remaining =  Math.max(0, (config.rateLimits.maxHits - rateBucket.hits));
                 // the rate limit ceiling for that given request
                 response.set('X-Rate-Limit-Limit', config.rateLimits.maxHits);
                 // the number of requests left for the time window
-                response.set('X-Rate-Limit-Remaining', remaining);
+                response.set('X-Rate-Limit-Remaining', config.rateLimits.maxHits - 1);
                 // the remaining window before the rate limit resets in miliseconds
                 response.set('X-Rate-Limit-Reset', timeUntilReset);
                 // Return bucket so other routes can use it
                 request.rateBucket = rateBucket;
-                // Reject or allow
-                if(rateBucket.hits < config.rateLimits.maxHits) {
-                    return next();
-                } else {
-                    response.statusCode = 429;
-                    return response.json({error: "RateLimit", message: 'Too Many Requests'});
-                }
+                return next();
+            });
+        } else {
+            var timeUntilReset = (config.rateLimits.ttl * 1000) - (new Date().getTime() - rateBucket.createdAt.getTime());
+            var remaining =  Math.max(0, (config.rateLimits.maxHits - rateBucket.hits));
+            // the rate limit ceiling for that given request
+            response.set('X-Rate-Limit-Limit', config.rateLimits.maxHits);
+            // the number of requests left for the time window
+            response.set('X-Rate-Limit-Remaining', remaining);
+            // the remaining window before the rate limit resets in miliseconds
+            response.set('X-Rate-Limit-Reset', timeUntilReset);
+            // Return bucket so other routes can use it
+            request.rateBucket = rateBucket;
+            // Reject or allow
+            if(rateBucket.hits < config.rateLimits.maxHits) {
+                return next();
+            } else {
+                response.statusCode = 429;
+                return response.json({error: "RateLimit", message: 'Too Many Requests'});
             }
-        });
-
+        }
+    });
 };

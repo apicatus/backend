@@ -103,7 +103,7 @@ exports.pathMatch = function(route, path) {
 exports.digestRequest = function(request, response, next) {
     'use strict';
 
-    console.log("digest");
+    console.log("digest", request.headers['content-length']);
     if (!request.headers.host) {
         console.log("skip digest");
         return next();
@@ -113,7 +113,9 @@ exports.digestRequest = function(request, response, next) {
     // extract the subdomain string from the req.url
     var subdomainString = regex.exec(request.headers.host);
     // if there is no subdomain, return
-    if(!subdomainString) return next();
+    if(!subdomainString) {
+        return next();
+    }
     // create an array of subdomains
     var subdomainArray = subdomainString[1].split('.');
     // console.log("subdomainArray", subdomainArray);
@@ -123,7 +125,7 @@ exports.digestRequest = function(request, response, next) {
 
     // Lookup
     //DigestorMdl.findOne({'endpoints.methods.URI':  pathname}, 'endpoints.methods')
-    DigestorMdl.findOne({name: subdomainArray[0]})
+    DigestorMdl.findOne({domain: subdomainArray[0].toLowerCase()})
     .exec(function(error, digestor) {
         if (error) {
             response.statusCode = 500;

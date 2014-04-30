@@ -167,6 +167,7 @@ exports.create = function (request, response, next) {
         response.json({error: 'No auth token received !'});
     }
     // Fail if digestor name is already created
+    // TODO: Digestor names can be duplicated but domains cannot !
     Digestor.findOne({name: request.body.name}, function(error, digestor) {
         if (error || digestor) {
             response.statusCode = 409;

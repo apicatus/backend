@@ -28,13 +28,13 @@ var environments = {
         ttl: (1000 * 60 * 100), // 10 minutes
         rateLimits: {
             ttl: 60 * 10, // 10 mins
-            maxHits: 600
+            maxHits: 6000
         },
         resetTokenExpiresMinutes: 20,
         staticPath: "/Users/benjius/Desktop/apicatus/frontend/build",
         mongoUrl: {
-            hostname: "paulo.mongohq.com",
-            port: 10026,
+            hostname: "miapi.com",
+            port: 27017,
             username: "admin",
             password: "admin",
             name: "",

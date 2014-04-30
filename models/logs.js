@@ -45,7 +45,6 @@ var Logs = new Schema({
     responseHeaders: {type: Object},
     responseBody: {type: Object},
     data: {type: Buffer, required: false},
-    responseStatus: {type: Number, default: 0, required: true},
     status: {type: Number, default: 0, required: true},
     date: { type: Date, default: Date.now },
     time: {type: Number, default: 0, required: true},

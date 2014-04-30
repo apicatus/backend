@@ -72,16 +72,16 @@ var Methods = new Schema({
     authorizations: [Authorizations]
 });
 var Endpoints = new Schema({
-    name: { type: String, required: false, default: "E Name", trim: true },
+    name: { type: String, required: false, default: "Endpoint name", trim: true },
     synopsis: { type: String, required: false },
     methods: [ Methods ]
 });
 var Digestor = new Schema({
     name: { type: String, required: true, trim: true },
-    synopsis: { type: String, required: false, default: "Api description", trim: true },
+    synopsis: { type: String, required: false, default: "API description", trim: true },
     type: { type: String, required: false, default: "REST" },
     version: { type: String, required: false },
-    domain: { type: String, required: false },
+    domain: { type: String, required: true },
     protocol: { type: String, required: false, default: "http" },
     baseURL: { type: String, required: false },
     allowCrossDomain: { type: Boolean, default: false, required: false },
