@@ -12,7 +12,7 @@
     "express": "~4",
     "socket.io": "~1",
     "http-proxy": "~1",
-    "mongoose": "~3.8",
+    "mongoose": "~3.9",
     "request": "~2",
     "passport": "~0.2",
     "passport-github": "~0.1",
@@ -24,19 +24,19 @@
     "github": "~0.2",
     "nodemailer": "~1",
     "ua-parser-js": "~0.7",
-    "body-parser": "^1.9.0",
-    "errorhandler": "^1.2.2"
+    "body-parser": "~1.9",
+    "errorhandler": "~1.2"
   },
   "devDependencies": {
     "mocha": "~1",
     "should": "~3",
-    "supertest": "~0.10",
-    "coveralls": "~2.10",
-    "istanbul": "~0.2",
-    "jshint-stylish": "~0.1",
+    "supertest": "~0.14",
+    "coveralls": "~2.11",
+    "istanbul": "~0.3",
+    "jshint-stylish": "~1",
     "gulp": "~3",
-    "gulp-jshint": "~1.5",
-    "gulp-mocha": "~0.4",
+    "gulp-jshint": "~1.8",
+    "gulp-mocha": "~1",
     "gulp-nodemon": "~1"
   },
   "scripts": {
