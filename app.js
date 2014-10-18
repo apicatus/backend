@@ -41,6 +41,8 @@
 var http = require('http'),
     socketio  = require('socket.io'),
     express = require('express'),
+    bodyParser = require('body-parser'),
+    errorhandler = require('errorhandler'),
     mongoose = require('mongoose'),
     conf = require('./config'),
     AccountMdl = require('./models/account'),
@@ -89,10 +91,8 @@ var init = function() {
         mongoUrl = generateMongoUrl(conf.mongoUrl);
         // Connect mongoose
         DB = mongoose.connect(mongoUrl);
-        // http://stackoverflow.com/questions/17696801/express-js-app-listen-vs-server-listen
-        // TODO make express 4.0 compatible
-        SERVER = http.createServer(app);
-        SERVER.listen(conf.listenPort, conf.ip);
+        // Start listening
+        SERVER = app.listen(conf.listenPort, conf.ip);
         socketio.listen(SERVER);
         console.log('connected to: %s:%s', conf.ip, conf.listenPort);
         return SERVER;
@@ -179,41 +179,29 @@ function ensureAuthenticated(request, response, next) {
 ///////////////////////////////////////////////////////////////////////////////
 // Configuration                                                             //
 ///////////////////////////////////////////////////////////////////////////////
-app.configure(function() {
-    'use strict';
+app.set('title', 'Apicat.us');
+app.set('view engine', 'html');
+app.set('views', __dirname + '/views');
+app.use(bodyParser());
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(allowCrossDomain);
+app.use(Throttle.throttle);
+app.use(DigestCtl.digestRequest);
+app.use(express.static(conf.staticPath));
 
-    app.set('title', 'Apicat.us');
-    app.set('view engine', 'html');
-    app.set('views', __dirname + '/views');
-    app.use(express.bodyParser());
-    app.use(express.methodOverride());
-    /* app.use(express.cookieParser()); */
-    /* app.use(express.session({ secret: conf.sessionSecret })); */
-    app.use(passport.initialize());
-    app.use(passport.session());
-    app.use(allowCrossDomain);
-    app.use(app.router);
-    app.use(Throttle.throttle);
-    app.use(DigestCtl.digestRequest);
-    app.use(express.static(conf.staticPath));
-});
-
-app.configure('development', function() {
-    'use strict';
-
-    app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-    app.use(express.logger());
-});
-app.configure('testing', function() {
-    'use strict';
-
-    app.use(express.errorHandler());
-});
-app.configure('production', function() {
-    'use strict';
-
-    app.use(express.errorHandler());
-});
+switch(process.env.NODE_ENV) {
+    case 'development':
+        app.use(errorhandler({ dumpExceptions: true, showStack: true }));
+        //app.use(express.logger());
+    break;
+    case 'test':
+        app.use(errorhandler());
+    break;
+    case 'production':
+        app.use(errorhandler());
+    break;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Digestors CURD Management                                                 //

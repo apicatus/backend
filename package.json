@@ -9,21 +9,23 @@
     "url": "git@github.com:apicatus/backend.git"
   },
   "dependencies": {
-    "express": "~3",
-    "socket.io": "~0.9",
+    "express": "~4",
+    "socket.io": "~1",
     "http-proxy": "~1",
     "mongoose": "~3.8",
     "request": "~2",
     "passport": "~0.2",
     "passport-github": "~0.1",
     "passport-local": "~1",
-    "passport-local-mongoose": "~0.2",
-    "jwt-simple": "~0.1",
-    "protagonist": "~0.10",
+    "passport-local-mongoose": "~0.3",
+    "jwt-simple": "~0.2",
+    "protagonist": "~0.12",
     "raml-parser": "~0.8",
-    "github": "~0.1",
-    "nodemailer": "~0.6",
-    "ua-parser-js": "^0.6.2"
+    "github": "~0.2",
+    "nodemailer": "~1",
+    "ua-parser-js": "~0.7",
+    "body-parser": "^1.9.0",
+    "errorhandler": "^1.2.2"
   },
   "devDependencies": {
     "mocha": "~1",
