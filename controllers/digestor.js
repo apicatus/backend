@@ -84,7 +84,7 @@ exports.read = function (request, response, next) {
     function gotUser(error, user) {
         if (error) {
             response.statusCode = 500;
-            return next();
+            return next(error);
         }
         query.owners = user._id;
         Digestor
@@ -94,12 +94,11 @@ exports.read = function (request, response, next) {
         .exec(function(error, digestors) {
             if (error) {
                 response.statusCode = 500;
-                return next();
+                return next(error);
             }
             if(!digestors) {
                 response.statusCode = 404;
-                var errJSON = JSON.stringify({"title": "error", "message": "Not Found", "status": "fail"});
-                return response.json(errJSON);
+                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
             }
             return response.json(digestors);
         });
@@ -139,7 +138,7 @@ exports.readOne = function (request, response, next) {
                 response.statusCode = 404;
                 return response.json({"title": "error", "message": "Not Found", "status": "fail"});
             }
-            return response.json(digestor);
+            return response.json(digestor.toJSON());
         });
     }
     Account.findUserByToken(token, gotUser);
@@ -159,13 +158,6 @@ exports.readOne = function (request, response, next) {
 exports.create = function (request, response, next) {
     'use strict';
 
-    response.contentType('application/json');
-    var token = request.headers.token;
-
-    if(!token) {
-        response.statusCode = 403;
-        response.json({error: 'No auth token received !'});
-    }
     // Fail if digestor name is already created
     // TODO: Digestor names can be duplicated but domains cannot !
     Digestor.findOne({name: request.body.name}, function(error, digestor) {
@@ -175,6 +167,8 @@ exports.create = function (request, response, next) {
         }
         digestor = new Digestor({
             name: request.body.name,
+            synopsis: request.body.synopsis,
+            subdomain: request.body.subdomain,
             created: new Date(),
             lastUpdate: new Date(),
             lastAccess: new Date(),
@@ -182,39 +176,32 @@ exports.create = function (request, response, next) {
             owners: []
         });
         digestor.save(onSave);
-
         function onSave(error, digestor) {
             if (error || !digestor) {
                 console.log("onSave error", error);
                 return next(error);
             }
-            var decoded = Account.decode(token);
-            if (decoded && decoded.email) {
-                Account.findOne({email: decoded.email}, function(error, user) {
-                    if (error || !user) {
-                        console.log("findOne error", error);
-                        return next(error);
-                    } else if (token === user.token.token) {
-                        // Verify if token has expired
-                        user.digestors.push(digestor._id);
-                        user.save(function(error, user){
-                            if (error) {
-                                console.log("save error", error);
-                                return next(error);
-                            }
-                            digestor.owners.push(user._id);
-                            digestor.save();
-                            response.statusCode = 201;
-                            return response.json(digestor);
-                        });
-                    }
-                });
-            } else {
-                response.statusCode = 409;
-                return response.json({error: 'Token could not be verified!'});
-            }
-            response.statusCode = 201;
-            return response.json(digestor);
+            console.log("user: ", JSON.stringify(digestor.toObject(), null, 4))
+
+            Account.findOne({email: request.user.email}, function(error, user) {
+                if (error || !user) {
+                    console.log("findOne error", error);
+                    return next(error);
+                } else if (request.user.token.token === user.token.token) {
+                    // Verify if token has expired
+                    user.digestors.push(digestor._id);
+                    user.save(function(error, user){
+                        if (error) {
+                            console.log("save error", error);
+                            return next(error);
+                        }
+                        digestor.owners.push(user._id);
+                        digestor.save();
+                        response.statusCode = 201;
+                        return response.json(digestor);
+                    });
+                }
+            });
         }
     });
 };

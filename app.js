@@ -282,14 +282,15 @@ app.get('/user/reset/:id/:email', function(req, res) {
 ///////////////////////////////////////////////////////////////////////////////
 // Analytics                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
-app.get('/metrics', Analytics.metrics);
-app.get('/geo', Analytics.geo);
-app.get('/languages', Analytics.languages);
-app.get('/platform', Analytics.platform);
-app.get('/contentlength', Analytics.contentLength);
-app.get('/contentlength2', Analytics.contentLength2);
-app.get('/performance', Analytics.performance);
-app.get('/metrics/:id/performance', Analytics.performance);
+app.get('/metrics', ensureAuthenticated, Analytics.metrics);
+app.get('/geo', ensureAuthenticated, Analytics.geo);
+app.get('/languages', ensureAuthenticated, Analytics.languages);
+app.get('/platform', ensureAuthenticated, Analytics.platform);
+app.get('/contentlength', ensureAuthenticated, Analytics.contentLength);
+app.get('/contentlength2', ensureAuthenticated, Analytics.contentLength2);
+app.get('/performance', ensureAuthenticated, Analytics.performance);
+app.get('/metrics/:id/performance', ensureAuthenticated, Analytics.performance);
+app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
 
 
 

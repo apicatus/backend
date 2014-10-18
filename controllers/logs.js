@@ -136,12 +136,9 @@ exports.create = function (request, response, next) {
         request.socket.remoteAddress ||
         request.connection.socket.remoteAddress;
 
-    var url_parts = url.parse(request.url, true);
-    var query = url_parts.query;
-
     var log = new Logs({
         ip: ip,
-        query: query,
+        uri: url.parse(request.url, true, true),
         requestHeaders: request.headers,
         requestBody: request.body,
         responseHeaders: {},

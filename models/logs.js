@@ -39,18 +39,18 @@ var mongoose = require('mongoose'),
 
 var Logs = new Schema({
     ip: { type: String, required: true, trim: true },
-    query: {type: Object}, // REPLACE WITH URL
-    requestHeaders: {type: Object},
-    requestBody: {type: Object},
-    responseHeaders: {type: Object},
-    responseBody: {type: Object},
-    data: {type: Buffer, required: false},
-    status: {type: Number, default: 0, required: true},
+    uri: { type: Object },
+    requestHeaders: { type: Object },
+    requestBody: { type: Object },
+    responseHeaders: { type: Object },
+    responseBody: { type: Object },
+    data: { type: Buffer, required: false },
+    status: {type: Number, default: 0, required: true },
     date: { type: Date, default: Date.now },
-    time: {type: Number, default: 0, required: true},
+    time: { type: Number, default: 0, required: true },
     method: { type: Schema.Types.ObjectId, ref: 'Methods' },
     digestor: { type: Schema.Types.ObjectId, ref: 'Methods' },
-    geo: {type: Object},
+    geo: { type: Object },
 });
 
 module.exports = mongoose.model('Logs', Logs);

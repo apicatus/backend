@@ -81,7 +81,7 @@ var parseQuery = function(request) {
         limit: 100,
         skip: 10
     };
-    console.log('params: ', JSON.stringify(params, null, 4));
+    //console.log('params: ', JSON.stringify(request.user, null, 4));
     return params;
 }
 exports.languages = function (request, response, next) {
@@ -165,7 +165,6 @@ exports.languages = function (request, response, next) {
         });*/
         response.json(model);
     });
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -198,10 +197,9 @@ exports.performance = function (request, response, next) {
         since = new Date().setDate(new Date().getDate() - 7);
     }
 
-    since = new Date(2014, 1, 1);
+    since = new Date(2013, 1, 1);
     until = new Date();
     parseQuery(request);
-
     // and here are the grouping request:
     var aggregate = [
         {
@@ -216,6 +214,11 @@ exports.performance = function (request, response, next) {
                 status: {
                     $gte: 100
                 },
+                digestor: { $in: request.user.digestors }
+            }
+        },
+        {
+            $match: {
                 digestor: ObjectId.createFromHexString(query.api)
             }
         },
@@ -227,7 +230,10 @@ exports.performance = function (request, response, next) {
                 error: { $cond: [{$gte: ['$status', 400]}, 1, 0]},
                 cache: { $cond: [{$eq: ['$status', 304]}, 1, 0]},
                 //date: {year: {$year: '$date'}, month: {$month: '$date'}, day: {$dayOfMonth: '$date'}}
-                timestamp: {month: {$month: '$date'}}
+                //timestamp: {day: {$dayOfMonth: '$date'}},
+                timestamp: {year: { $year: '$date' }, day: {$dayOfMonth: '$date'}, month: { $month: '$date' }},
+                date: '$date',
+                index: { $const:[0,1] }
                 //date: { hour: { $hour: '$date' } }
             }
         },
@@ -238,12 +244,13 @@ exports.performance = function (request, response, next) {
                 error: { $sum: '$error'},
                 success: { $sum: '$success' },
                 cache:  { $sum: '$cache' },
+                vv: { $push: {$dayOfMonth: '$date'}},
                 total: { $sum: 1 },
             }
         },
         {
             $sort: {
-                total: -1
+                total: 1
             }
         },
         {
@@ -263,9 +270,143 @@ exports.performance = function (request, response, next) {
         }
         response.json(model);
     });
-
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Route to get platform statistics                                          //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.summaryStats = function (request, response, next) {
+    'use strict';
+
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    /*since = new Date(2013, 1, 1);
+    until = new Date();*/
+    parseQuery(request);
+    // and here are the grouping request:
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until)
+                },
+                status: {
+                    $gte: 100
+                },
+                digestor: { $in: request.user.digestors }
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                status: 1,
+                time: 1,
+                date: { year: { $year: '$date' }, month: { $month: '$date' }, day: {$dayOfMonth: '$date'} },
+                day: { $dayOfMonth: '$date' },
+                digestor: 1
+            }
+        },
+        {
+            $group: {
+                _id: { digestor:'$digestor', date: '$date' },
+                avg_time: { $avg: '$time' },
+                max_time: { $max: '$time' },
+                min_time: { $min: '$time' },
+                /*data: {
+                    $addToSet: {
+                        day: '$day',
+                        time: '$time'
+                    }
+                },*/
+                total: { $sum: 1 },
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                digestor: '$_id.digestor',
+                total: 1,
+                //data: 1,
+                dataset: {
+                    date: '$_id.date',
+                    time: {
+                        avg: '$avg_time',
+                        max: '$max_time',
+                        min: '$min_time'
+                    },
+                    total: '$total'
+                }
+            }
+        },
+        {
+            $group: {
+                _id: '$digestor',
+                dataset: {
+                    $push: '$dataset'
+                },
+                total: { $sum: '$dataset.total' },
+                avg_time: { $avg: '$dataset.time.avg'}
+                /*time: {
+                    avg: { $avg: '$dataset.time.avg' },
+                    max: { $max: '$dataset.time.max' },
+                    min: { $min: '$dataset.time.min' }
+                }*/
+            }
+        },
+        {
+            $sort: {
+                dataset: 1
+            }
+        },
+        {
+            $limit: 100
+        }
+    ];
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        model.forEach(function(data, index){
+            data.dataset.forEach(function(set){
+                var date = set.date;
+                set.date = new Date(date.year, date.month - 1, date.day);
+            })
+        })
+        response.json(model);
+    });
+};
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get platform statistics                                          //
 //                                                                           //
@@ -476,7 +617,6 @@ exports.contentLength2 = function (request, response, next) {
         }
         response.json(model);
     });
-
 };
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get platform statistics                                          //
@@ -567,8 +707,19 @@ exports.platform = function (request, response, next) {
         });
         response.json(platforms);
     });
-
 };
+///////////////////////////////////////////////////////////////////////////////
+// Geolocation statistics                                                    //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
 exports.geo = function (request, response, next) {
     'use strict';
 
@@ -648,7 +799,6 @@ exports.geo = function (request, response, next) {
         }
         response.json(model);
     });
-
 };
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get all Digestors                                                //

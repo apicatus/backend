@@ -78,10 +78,10 @@ var Endpoints = new Schema({
 });
 var Digestor = new Schema({
     name: { type: String, required: true, trim: true },
-    synopsis: { type: String, required: false, default: "API description", trim: true },
+    synopsis: { type: String, required: false, default: "API description", trim: false },
     type: { type: String, required: false, default: "REST" },
     version: { type: String, required: false },
-    domain: { type: String, required: true },
+    subdomain: { type: String, required: false, trim: false, lowercase: true },
     protocol: { type: String, required: false, default: "http" },
     baseURL: { type: String, required: false },
     allowCrossDomain: { type: Boolean, default: false, required: false },
@@ -95,5 +95,34 @@ var Digestor = new Schema({
     hits: { type: Number, default: 0, required: false },
     owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }]
 });
+
+///////////////////////////////////////////////////////////////////////////////
+// toObject                                                                  //
+///////////////////////////////////////////////////////////////////////////////
+
+Digestor.set('toObject', { getters: true, virtuals: false });
+
+if (!Digestor.options.toObject) {
+    Digestor.options.toObject = {};
+}
+Digestor.options.toObject.transform = function (document, ret, options) {
+    delete ret._id;
+    delete ret.__v;
+    return ret;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// toJSON                                                                    //
+///////////////////////////////////////////////////////////////////////////////
+
+Digestor.set('toJSON', { getters: true, virtuals: false });
+
+if (!Digestor.options.toJSON) {
+    Digestor.options.toJSON = {};
+}
+Digestor.options.toJSON.transform = function (document, ret, options) {
+    delete ret.__v;
+    return ret;
+};
 
 module.exports = mongoose.model('Digestor', Digestor);
