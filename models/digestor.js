@@ -106,7 +106,6 @@ if (!Digestor.options.toObject) {
     Digestor.options.toObject = {};
 }
 Digestor.options.toObject.transform = function (document, ret, options) {
-    delete ret._id;
     delete ret.__v;
     return ret;
 };

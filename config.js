@@ -1,7 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Primary configuration file                                                //
 ///////////////////////////////////////////////////////////////////////////////
-var os = require("os");
+var os = require("os"),
+    fs = require('fs');
 
 var environments = {
     ///////////////////////////////////////////////////////////////////////////
@@ -93,6 +94,10 @@ var environments = {
         email: {
             user: "",
             password: ""
+        },
+        ssl: {
+            key: fs.readFileSync('ssl-key.pem'),
+            cert: fs.readFileSync('ssl-cert.pem')
         },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,

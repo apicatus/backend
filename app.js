@@ -38,7 +38,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Module dependencies.                                                      //
 ///////////////////////////////////////////////////////////////////////////////
-var http = require('http'),
+var fs = require('fs'),
+    http = require('http'),
+    https = require('https'),
     socketio  = require('socket.io'),
     express = require('express'),
     bodyParser = require('body-parser'),
@@ -54,15 +56,16 @@ var http = require('http'),
     DigestCtl = require('./controllers/digest'),
     Importer = require('./controllers/importer'),
     Throttle = require('./services/throttle');
+    notifierService = require('./services/notifier');
 
 ///////////////////////////////////////////////////////////////////////////////
 // Run app                                                                   //
 ///////////////////////////////////////////////////////////////////////////////
 var app = express();
-var SERVER = null;
+var IO = null;
 var DB = null;
 
-exports.app = app;
+
 
 //Mailer.sendTemplate("hola", "<h1>Hola</h1>", "subject", ['benjaminmaggi@gmail.com']);
 ////////////////////////////////////////////////////////////////////////////////
@@ -85,6 +88,8 @@ var init = function() {
     'use strict';
 
     var mongoUrl = null;
+    var io = null;
+    var server = null;
     // In some test context it may be a good idea to init the service
     // from whitin the test unit instead
     if(conf.autoStart) {
@@ -92,10 +97,18 @@ var init = function() {
         // Connect mongoose
         DB = mongoose.connect(mongoUrl);
         // Start listening
-        SERVER = app.listen(conf.listenPort, conf.ip);
-        socketio.listen(SERVER);
+        //server = app.listen(conf.listenPort, conf.ip);
+        if(conf.ssl) {
+            server = https.createServer(conf.ssl, app).listen(conf.listenPort, conf.ip);
+        } else {
+            server = http.createServer(app).listen(conf.listenPort, conf.ip);
+        }
+        ///////////////////////////////////////////////////////////////////////////////
+        // Setup Notification Service                                                //
+        ///////////////////////////////////////////////////////////////////////////////
+        notifierService.setup(server)
         console.log('connected to: %s:%s', conf.ip, conf.listenPort);
-        return SERVER;
+        return server;
     }
 };
 
@@ -182,7 +195,10 @@ function ensureAuthenticated(request, response, next) {
 app.set('title', 'Apicat.us');
 app.set('view engine', 'html');
 app.set('views', __dirname + '/views');
-app.use(bodyParser());
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
+app.use(bodyParser.json());
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(allowCrossDomain);
@@ -202,46 +218,53 @@ switch(process.env.NODE_ENV) {
         app.use(errorhandler());
     break;
 }
+///////////////////////////////////////////////////////////////////////////////
+// Application rutes                                                         //
+///////////////////////////////////////////////////////////////////////////////
+app.get('/', function(request, response) {
+    'use strict';
+    response.sendFile('/index.html', { root: conf.staticPath });
+});
 
 ///////////////////////////////////////////////////////////////////////////////
 // Digestors CURD Management                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 // Collections
-app.post('/digestors', ensureAuthenticated, DigestorCtl.create);
-app.get('/digestors', ensureAuthenticated, DigestorCtl.read);
-app.delete('/digestors', ensureAuthenticated, DigestorCtl.deleteAll);
+app.route('/digestors')
+    .post(ensureAuthenticated, DigestorCtl.create)
+    .get(ensureAuthenticated, DigestorCtl.read)
+    .delete(ensureAuthenticated, DigestorCtl.deleteAll);
 // Entities
-app.get('/digestors/:id', ensureAuthenticated, DigestorCtl.readOne);
-app.put('/digestors/:id', ensureAuthenticated, DigestorCtl.updateOne);
-app.delete('/digestors/:name', ensureAuthenticated, DigestorCtl.deleteOne);
+app.route('/digestors/:id')
+    .get(ensureAuthenticated, DigestorCtl.readOne)
+    .put(ensureAuthenticated, DigestorCtl.updateOne)
+    .delete(ensureAuthenticated, DigestorCtl.deleteOne)
 
 
 ///////////////////////////////////////////////////////////////////////////////
 // Logs CRUD                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 // Collections
-app.post('/logs', LogsCtl.create);
-app.get('/logs', LogsCtl.read);
+app.route('/logs')
+    .post(LogsCtl.create)
+    .get(LogsCtl.read);
 // Entities
-app.put('/logs/:id', LogsCtl.update);
-app.delete('/logs/:id', LogsCtl.delete);
+app.route('/logs/:id')
+    .put(LogsCtl.update)
+    .delete(LogsCtl.delete);
 
-///////////////////////////////////////////////////////////////////////////////
-// Application rutes                                                         //
-///////////////////////////////////////////////////////////////////////////////
-app.get('/', function(request, response) {
-    'use strict';
-    response.sendfile(conf.staticPath + '/index.html');
-});
 ///////////////////////////////////////////////////////////////////////////////
 // User CRUD Methods & Servi                                                 //
 ///////////////////////////////////////////////////////////////////////////////
 app.post('/user/signin', AccountCtl.signIn);
 app.get('/user/signout', ensureAuthenticated, AccountCtl.signOut);
-app.post('/user', AccountCtl.create);
-app.get('/user', ensureAuthenticated, AccountCtl.read);
-app.put('/user', ensureAuthenticated, AccountCtl.update);
-app.del('/user', ensureAuthenticated, AccountCtl.delete);
+
+app.route('/user')
+    .post(AccountCtl.create)
+    .get(ensureAuthenticated, AccountCtl.read)
+    .put(ensureAuthenticated, AccountCtl.update)
+    .delete(ensureAuthenticated, AccountCtl.delete);
+
 app.post('/user/forgot', AccountCtl.resetToken);
 app.get('/user/reset/:id/:email', function(req, res) {
     'use strict';
@@ -319,11 +342,9 @@ app.get('/throttle', Throttle.throttle, function(req, res) {
 app.post('/import/blueprint', ensureAuthenticated, Importer.blueprint);
 app.post('/import/test', ensureAuthenticated, Importer.test);
 
-///////////////////////////////////////////////////////////////////////////////
-// socket.io                                                                 //
-///////////////////////////////////////////////////////////////////////////////
 
-SERVER = init();
+exports.app = init();
+
 ///////////////////////////////////////////////////////////////////////////////
 // Gracefully Shuts down the workers.
 ///////////////////////////////////////////////////////////////////////////////

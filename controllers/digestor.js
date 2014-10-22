@@ -175,6 +175,7 @@ exports.create = function (request, response, next) {
             endpoints: request.body.endpoints || [],
             owners: []
         });
+        console.log(digestor);
         digestor.save(onSave);
         function onSave(error, digestor) {
             if (error || !digestor) {
@@ -266,14 +267,14 @@ exports.deleteOne = function (request, response, next) {
             response.statusCode = 500;
             return next();
         }
-        Digestor.findOneAndRemove({$and: [{name: request.params.name}, {owners: user._id}]})
-        .exec(function (error) {
+        Digestor.findOneAndRemove({$and: [{_id: request.params.id}, {owners: user._id}]})
+        .exec(function (error, digestor) {
             if (error) {
                 response.statusCode = 500;
                 return next(error);
             } else {
                 response.statusCode = 204;
-                return response.json({});
+                return response.json({action: 'deleteOne', result: true});
             }
         });
     }
