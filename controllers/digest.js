@@ -144,11 +144,11 @@ exports.digestRequest = function(request, response, next) {
         var proxyUrlParts = url.parse(method.proxy.URI, true, true);
 
         var options = {
-            host: proxyUrlParts.hostname,
+            hostname: proxyUrlParts.hostname,
             port: proxyUrlParts.port | 80,
             path: proxyUrlParts.path,
             method: method.method.toUpperCase(),
-            headers: request.headers
+            // headers: request.headers TODO setup custom request headers in the app
         };
 
         var protocol = null;
@@ -158,33 +158,52 @@ exports.digestRequest = function(request, response, next) {
         } else {
             protocol = http;
         }
-        console.log("proxying request to:", method.proxy.URI, "options:", options, "proto: ", proxyUrlParts.protocol);
+        console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(options, null, 4), "\nprotocol: ", proxyUrlParts.protocol, "\n");
 
-        var pipeRequest = protocol.request(options, function(pipedResponse) {
+        var pipedRequest = protocol.request(options, function(pipedResponse) {
+            console.log('STATUS: ' + pipedResponse.statusCode + '\n');
+            console.log('HEADERS: ' + JSON.stringify(pipedResponse.headers, null ,4) + '\n');
+
+            // Set status
+            response.statusCode = pipedResponse.statusCode;
+            // Set headers
+            for(var header in pipedResponse.headers) {
+                if(pipedResponse.headers.hasOwnProperty(header)) {
+                    response.set(header, pipedResponse.headers[header]);
+                }
+            }
+            // Default encodnig
             pipedResponse.setEncoding('utf8');
             pipedResponse.on('data', function (chunk) {
                 log.data += chunk;
+                //response.send(chunk);
             });
-            pipedResponse.on('end', function() {
+            pipedResponse.on('end', function() {                
                 console.log("response ended");
+                //response.writeHeader(pipedResponse.statusCode, pipedResponse.headers);
+                //response.end();
+            });
+            pipedResponse.on('close', function() {
+                console.log("response close");
+            });
+            pipedResponse.on('finish', function() {
+                console.log("response finish");
             });
             pipedResponse.pause();
-            // Update headers from proxy
-            response.writeHeader(pipedResponse.statusCode, pipedResponse.headers);
             pipedResponse.pipe(response);
             pipedResponse.resume();
         });
-        pipeRequest.on('timeout', function() {
+        pipedRequest.on('timeout', function() {
             response.statusCode = 408;
             response.json({"title": "error", "message": "timeout", "status": "fail"});
         });
-        pipeRequest.on('error', function(error) {
+        pipedRequest.on('error', function(error) {
             response.statusCode = 500;
             console.log('problem with request: ' + error.message);
             response.json({"title": "error", "message": "remote connection error", "status": "fail"});
         });
         // Pipe request
-        request.pipe(pipeRequest);
+        request.pipe(pipedRequest);
         request.resume();
     };
     var getMethodByRoute = function(digestor, route, httpMethod) {

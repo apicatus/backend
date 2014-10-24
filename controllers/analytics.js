@@ -197,6 +197,8 @@ exports.performance = function (request, response, next) {
         since = new Date().setDate(new Date().getDate() - 7);
     }
 
+    console.log("id: ", query);
+
     since = new Date(2013, 1, 1);
     until = new Date();
     parseQuery(request);
@@ -219,7 +221,7 @@ exports.performance = function (request, response, next) {
         },
         {
             $match: {
-                digestor: ObjectId.createFromHexString(query.api)
+                digestor: ObjectId.createFromHexString(query.id)
             }
         },
         {
@@ -284,6 +286,169 @@ exports.performance = function (request, response, next) {
 //                                                                           //
 // @url GET /platform                                                        //
 ///////////////////////////////////////////////////////////////////////////////
+exports.getto = function (request, response, next) {
+    'use strict';
+
+    var token = request.headers.token;
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    console.log("since: ", new Date(since), " until: ", new Date(until), " dig: ", request.user.digestors);
+
+    var fx = {
+        map: function() {
+            print("cosasss");
+            emit(this.digestor, {
+                time: this.time,
+                digestors: digestors
+            });
+        },
+        reduce: function(key, values) {
+            return {
+                matrix: digestors
+            };
+        },
+        finalize: function(key, value) {
+            return value;
+        },
+        out: { inline: 1 },
+        verbose: true,
+        scope: {
+            digestors: request.user.digestors
+        },
+        query: {
+            date: {
+                '$gte': new Date(since),
+                '$lt': new Date(until),
+            }
+        }
+    };
+    // a promise is returned so you may instead write
+    var promise = Logs.mapReduce(fx, function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        console.log('map reduce took %d ms', stats.processtime);
+        response.json(model);
+    });
+};
+exports.metrixx = function (request, response, next) {
+    'use strict';
+
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+    parseQuery(request);
+
+    // and here are the grouping request:
+    var aggregate = [{
+        $match: {
+            time: {
+                $gt: 0
+            },
+            date: {
+                $gte: new Date(since),
+                $lt: new Date(until)
+            },
+            status: {
+                $gte: 100
+            },
+            digestor: ObjectId(request.params.id)
+        }
+    }, {
+        $project: {
+            _id: 0, // let's remove bson id's from request's result
+            status: 1,
+            time: 1,
+            date: 1, //{ year: { $year: '$date' }, month: { $month: '$date' }, day: {$dayOfMonth: '$date'} },
+            method: 1
+        }
+    }, {
+        $group: {
+            //_id: {c: '$country', n: '$name' },
+            _id: {
+                method: '$method',
+                date: '$date'
+            },
+            avg_time: { $avg: '$time' },
+            max_time: { $max: '$time' },
+            min_time: { $min: '$time' },
+            timex: { $sum: '$time' },
+            total: { $sum: 1 },
+        }
+    }, {
+        $project: {
+            _id: 0,
+            method: '$_id.method',
+            total: 1,
+            dataset: {
+                date: '$_id.date',
+                time: {
+                    avg: '$avg_time',
+                    max: '$max_time',
+                    min: '$min_time',
+                    time: '$timex',
+                }
+            }
+        }
+    }, {
+        $group: {
+            _id: '$method',
+            dataset: {
+                $push: {
+                    timestamp: '$dataset.date',
+                    data: '$dataset.time.time'
+                }
+            },
+            total: { $sum: '$total' },
+            avg: { $avg: '$dataset.time.avg' },
+            min: { $min: '$dataset.time.min' },
+            max: { $max: '$dataset.time.max' }
+        }
+    }];
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            console.log("ERROR!");
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            console.log("not found !");
+            response.statusCode = 204;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        response.json(model);
+    });
+};
+
 exports.summaryStats = function (request, response, next) {
     'use strict';
 
@@ -398,6 +563,7 @@ exports.summaryStats = function (request, response, next) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
+        console.log("model", model);
         model.forEach(function(data, index){
             data.dataset.forEach(function(set){
                 var date = set.date;
@@ -708,6 +874,7 @@ exports.platform = function (request, response, next) {
         response.json(platforms);
     });
 };
+
 ///////////////////////////////////////////////////////////////////////////////
 // Geolocation statistics                                                    //
 //                                                                           //
@@ -800,6 +967,7 @@ exports.geo = function (request, response, next) {
         response.json(model);
     });
 };
+
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get all Digestors                                                //
 //                                                                           //
@@ -812,8 +980,6 @@ exports.geo = function (request, response, next) {
 //                                                                           //
 // @url GET /digestor                                                        //
 ///////////////////////////////////////////////////////////////////////////////
-
-
 exports.metrics = function (request, response, next) {
     'use strict';
 

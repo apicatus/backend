@@ -300,8 +300,9 @@ app.get('/platform', ensureAuthenticated, Analytics.platform);
 app.get('/contentlength', ensureAuthenticated, Analytics.contentLength);
 app.get('/contentlength2', ensureAuthenticated, Analytics.contentLength2);
 app.get('/performance', ensureAuthenticated, Analytics.performance);
-app.get('/metrics/:id/performance', ensureAuthenticated, Analytics.performance);
+app.get('/metrics/:id', ensureAuthenticated, Analytics.metrixx);
 app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
+app.get('/getto', ensureAuthenticated, Analytics.getto);
 
 
 
@@ -353,7 +354,7 @@ process
         'use strict';
 
         console.log('SIGTERM');
-        SERVER.close(function () {
+        exports.app.close(function () {
             mongoose.connection.close(function () {
                 process.exit(0);
             });
@@ -367,7 +368,7 @@ process
         'use strict';
 
         console.log('SIGINT');
-        SERVER.close(function () {
+        exports.app.close(function () {
             mongoose.connection.close(function () {
                 process.exit(1);
             });
