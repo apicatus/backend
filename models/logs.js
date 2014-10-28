@@ -53,4 +53,18 @@ var Logs = new Schema({
     geo: { type: Object },
 });
 
+///////////////////////////////////////////////////////////////////////////////
+// toJSON                                                                    //
+///////////////////////////////////////////////////////////////////////////////
+
+Logs.set('toJSON', { getters: true, virtuals: false });
+
+if (!Logs.options.toJSON) {
+    Logs.options.toJSON = {};
+}
+Logs.options.toJSON.transform = function (document, ret, options) {
+    delete ret.__v;
+    return ret;
+};
+
 module.exports = mongoose.model('Logs', Logs);

@@ -37,11 +37,17 @@
 // Controllers
 var mongoose = require('mongoose'),
     url = require('url'),
-    freegeoip = require('../services/freegeoip');
+    freegeoip = require('../services/freegeoip'),
+    geoip = require('geoip-lite'),
+    config = require('../config'),
+    elasticsearch = require('elasticsearch');
 
 // Load model
 var logs_schema = require('../models/logs'),
     Logs = mongoose.model('Logs', logs_schema);
+
+var logs_mapping = require('../models/logs.mapping.json')
+var client = new elasticsearch.Client(config.elasticsearch);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get all Digestors                                                //
@@ -60,16 +66,98 @@ exports.read = function (request, response, next) {
 
     var defaults = {
         skip : 0,
-        limit : 0
+        limit : 0,
+        digestor: '',
+        method: ''
     };
     var query = url.parse(request.url, true).query;
-    // Remove defauls from query object
-    for(var key in defaults) {
-        if(defaults.hasOwnProperty(key)) {
-            defaults[key] = parseInt(query[key], 10);
-            delete query[key];
-        }
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setHours(new Date().getHours() - 6);
     }
+
+    console.log("query: ", query)
+    client.search({
+        index: 'logs',
+        size: query.limit || 10,
+        from: query.from || 0,
+        body: {
+            // Begin query.
+            //fields: ["time", "date"],
+            _source: [ 'date', 'ip', 'uri', 'status', 'time' ],
+            query: {
+                filtered: {
+                    query: {
+                        // Boolean query for matching and excluding items.
+                        bool: {
+                            should: [{
+                                query_string: {
+                                    query: "*"
+                                }
+                            }]
+                        }
+                    },
+                    filter: {
+                        bool: {
+                            must: [{
+                                range: {
+                                    date: {
+                                        from: since,
+                                        to: until
+                                    }
+                                }
+                            }],
+                            should: [{
+                                fquery: {
+                                    query: {
+                                        query_string: {
+                                            query: "digestor:(" + query.digestor + ")"
+                                        }
+                                    }
+                                }
+                            }, 
+                            {
+                                fquery: {
+                                    query: {
+                                        query_string: {
+                                            query: "method:(" + query.method + ")"
+                                        }
+                                    }
+                                }
+                            }]
+                        }
+                    }
+                },
+            },
+            sort: [
+                {
+                    date: {
+                        order: "desc", ignore_unmapped: true
+                    }
+                }
+            ]
+        }
+    }).then(function (logs) {
+        if(!logs.hits.hits.length) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(logs.hits);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+    /*
     Logs
     .find(query)
     .limit(defaults.limit)
@@ -85,6 +173,7 @@ exports.read = function (request, response, next) {
         }
         return response.json(logs);
     });
+    */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -116,8 +205,29 @@ exports.findBy = function (request, response, next) {
     }
 };
 
+var initIndex = function (client) {
+
+    console.log("logs_mapping: ", logs_mapping);
+    /*
+    client.create({ 
+        index: 'logs', 
+        type: 'log' 
+    });
+
+    client.indices.putMapping({ 
+        index: 'logs', 
+        type: 'log', 
+        body: body 
+    }).then(function (response) {
+        var hits = resp.hits.hits;
+    }, function (error, body, code) {
+        if (error) throw new Error(error);
+    });
+    */
+};
+
 ///////////////////////////////////////////////////////////////////////////////
-// Route to add a Digestor                                                   //
+// Create a log and store it to elasticsearch                                //
 //                                                                           //
 // @param {Object} request                                                   //
 // @param {Object} response                                                  //
@@ -128,7 +238,59 @@ exports.findBy = function (request, response, next) {
 //                                                                           //
 // @url POST /logs                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-exports.create = function (request, response, next) {
+exports.create = function(request, response, next) {
+    'use strict';
+
+    var ip = request.headers['x-forwarded-for'] ||
+        request.connection.remoteAddress ||
+        request.socket.remoteAddress ||
+        request.connection.socket.remoteAddress;
+
+    var log = {
+        ip: ip,
+        uri: url.parse(request.url, true, true),
+        requestHeaders: request.headers,
+        requestBody: request.body,
+        responseHeaders: {},
+        responseBody: {},
+        date: new Date(),
+        status: 0,
+        time: 0,
+        geo: geoip.lookup('190.18.149.180')
+    };
+
+    function logRequest() {
+
+        log.time = new Date().getTime() - log.date.getTime();
+        log.responseHeaders = response._headers;
+        log.status = response.statusCode;
+        // Save to elasticsearch
+        client.create({
+            index: 'logs',
+            type: 'log',
+            id: mongoose.Types.ObjectId().toString(),
+            body: log
+        }).then(function (response) {
+            return response;
+        }, function (error, body, code) {
+            console.trace("error: ", error.message);
+            if (error) throw new Error(error);
+        });
+    }
+    
+    initIndex();
+
+    response.on('finish', logRequest);
+    response.on('data', function (chunk) {
+        log.responseBody += chunk;
+    });
+    response.on('end', function() {
+    });
+    response.on('header', function() {
+    });
+    return log;    
+};
+exports.createOLD = function (request, response, next) {
     'use strict';
 
     var ip = request.headers['x-forwarded-for'] ||
@@ -156,7 +318,18 @@ exports.create = function (request, response, next) {
             report = new Error('Error could not create log');
             report.status = 404;
             return next(report);
-        }
+        }/*
+        if(log) {
+            console.log("LOG OK: ", log.toJSON());
+            client.create({
+                index: 'logs',
+                type: 'log',
+                id: log._id.toString(),
+                body: log.toJSON()
+            }, function (error, response) {
+                console.log("response: ", response);
+            });
+        }*/
         //return next(log);
     }
     function logRequest() {
@@ -193,55 +366,9 @@ exports.create = function (request, response, next) {
     });
     return log;
 };
-exports.create2 = function (request, response, next) {
-    'use strict';
-
-    var ip = request.headers['x-forwarded-for'] ||
-        request.connection.remoteAddress ||
-        request.socket.remoteAddress ||
-        request.connection.socket.remoteAddress;
-
-    var url_parts = url.parse(request.url, true);
-    var query = url_parts.query;
-
-    var log = new Logs({
-        ip: ip,
-        query: query,
-        requestHeaders: request.headers,
-        requestBody: request.body,
-        responseHeaders: {},
-        responseBody: {},
-        status: 0,
-        timeStamp: new Date(),
-        time: 0
-    });
-    function onSave(error, log) {
-        if (error) {
-            return next(error);
-        }
-        if(!log) {
-            response.statusCode = 500;
-            return response.json({"title": "error", "message": "could not save", "status": "fail"});
-        }
-        response.statusCode = 201;
-        return response.json(log);
-    }
-    function logRequest() {
-        response.removeListener('finish', logRequest);
-        log.time = new Date().getTime() - log.timeStamp.getTime();
-        log.responseHeaders = response.headers;
-        log.status = response.statusCode;
-        log.save(onSave);
-        console.log("response finish: ", log.time, "ms");
-    }
-    response.on('finish', logRequest);
-    response.on('data', function (chunk) {
-        log.responseBody += chunk;
-    });
-};
 
 ///////////////////////////////////////////////////////////////////////////////
-// Route to update a Digestor                                                //
+// Route to update a Log                                                     //
 //                                                                           //
 // @param {Object} request                                                   //
 // @param {Object} response                                                  //

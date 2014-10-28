@@ -300,9 +300,13 @@ app.get('/platform', ensureAuthenticated, Analytics.platform);
 app.get('/contentlength', ensureAuthenticated, Analytics.contentLength);
 app.get('/contentlength2', ensureAuthenticated, Analytics.contentLength2);
 app.get('/performance', ensureAuthenticated, Analytics.performance);
-app.get('/metrics/:id', ensureAuthenticated, Analytics.metrixx);
+app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
 app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
-app.get('/getto', ensureAuthenticated, Analytics.getto);
+app.get('/getBytesTransferred/:id', ensureAuthenticated, Analytics.getBytesTransferred);
+
+//app.route('metrics/:entity/:id/:type')
+// metric/digestor/12345/time
+// metric/digestor/12345/bytes
 
 
 

@@ -1,0 +1,158 @@
+{
+    "log": {
+        "properties": {
+            "data": {
+                "type": "string",
+                "index": "not_analyzed",
+                "store": "yes"
+            },
+            "date": {
+                "type": "date",
+                "format": "dateOptionalTime"
+            },
+            "geo" : {
+                "properties" : {
+                    "city" : {
+                        "type" : "string"
+                    },
+                    "country" : {
+                        "type" : "string"
+                    },
+                    "ll" : {
+                        "type" : "string",
+                        "index": "not_analyzed",
+                        "store": "yes"
+                    },
+                    "range" : {
+                        "type" : "string",
+                        "index": "not_analyzed",
+                        "store": "yes"
+                    },
+                    "region" : {
+                        "type": "long",
+                        "store": "yes",
+                        "ignore_malformed": true,
+                        "null_value": 0
+                    }
+                }
+            },
+            "ip": {
+                "type": "ip",
+                "store" : "yes",
+                "index" : "no"
+            },
+            "digestor": {
+                "type": "string",
+                "index": "not_analyzed",
+                "store": "yes"
+            },
+            "method": {
+                "type": "string",
+                "index": "not_analyzed",
+                "store": "yes"
+            },
+            "requestHeaders": {
+                "properties": {
+                    "accept": {
+                        "type": "string"
+                    },
+                    "accept-encoding": {
+                        "type": "string"
+                    },
+                    "accept-language": {
+                        "type": "string",
+                        "index": "analyzed",
+                        "store": "yes"
+                    },
+                    "connection": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "origin": {
+                        "type": "string"
+                    },
+                    "referer": {
+                        "type": "string"
+                    },
+                    "user-agent": {
+                        "type": "string",
+                        "index": "analyzed",
+                        "store": "yes"
+                    }
+                }
+            },
+            "responseHeaders": {
+                "properties": {
+                    "access-control-allow-headers": {
+                        "type": "string"
+                    },
+                    "access-control-allow-methods": {
+                        "type": "string"
+                    },
+                    "access-control-allow-origin": {
+                        "type": "string"
+                    },
+                    "connection": {
+                        "type": "string"
+                    },
+                    "content-language": {
+                        "type": "string"
+                    },
+                    "content-length": {
+                        "type": "long",
+                        "store": "yes",
+                        "ignore_malformed": true,
+                        "null_value": 0
+                    },
+                    "content-type": {
+                        "type": "string"
+                    },
+                    "date": {
+                        "type": "date",
+                        "format": "EEE, dd MMM yyyy HH:mm:ss z"
+                    },
+                    "expires": {
+                        "type": "date",
+                        "format": "EEE, dd MMM yyyy HH:mm:ss z"
+                    },
+                    "keep-alive": {
+                        "type": "string"
+                    },
+                    "server": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "status": {
+                "type": "long",
+                "store": "yes",
+                "ignore_malformed": true,
+                "null_value": 0
+            },
+            "time": {
+                "type": "long",
+                "store": "yes",
+                "ignore_malformed": true,
+                "null_value": 0
+            },
+            "uri": {
+                "properties": {
+                    "href": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "pathname": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}

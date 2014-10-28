@@ -20,8 +20,16 @@ var environments = {
             user: "",
             password: ""
         },
+        /*ssl: {
+            key: fs.readFileSync('ssl-key.pem'),
+            cert: fs.readFileSync('ssl-cert.pem')
+        },*/
+        elasticsearch: {
+            hosts: ['http://localhost:9200'],
+            log: 'trace'
+        },
         environment: process.env.NODE_ENV,
-        listenPort: process.env.PORT || 8080,
+        listenPort: process.env.PORT || 8070,
         ip: process.env.IP || '127.0.0.1',
         baseUrl: 'miapi.com',
         allowCrossDomain: false,
@@ -57,6 +65,14 @@ var environments = {
         email: {
             user: "",
             password: ""
+        },
+        ssl: {
+            key: fs.readFileSync('ssl-key.pem'),
+            cert: fs.readFileSync('ssl-cert.pem')
+        },
+        elasticsearch: {
+            hosts: ['http://localhost:9200'],
+            log: 'trace'
         },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
@@ -98,6 +114,10 @@ var environments = {
         ssl: {
             key: fs.readFileSync('ssl-key.pem'),
             cert: fs.readFileSync('ssl-cert.pem')
+        },
+        elasticsearch: {
+            hosts: ['http://localhost:9200'],
+            log: 'trace'
         },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
