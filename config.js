@@ -26,7 +26,11 @@ var environments = {
         },*/
         elasticsearch: {
             hosts: ['http://localhost:9200'],
-            log: 'trace'
+            //log: 'trace'
+            log: [{
+                type: 'tracer',
+                levels: ['error']
+            }]
         },
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8070,

@@ -47,7 +47,7 @@ var logs_schema = require('../models/logs'),
     Logs = mongoose.model('Logs', logs_schema);
 
 var logs_mapping = require('../models/logs.mapping.json')
-var client = new elasticsearch.Client(config.elasticsearch);
+var client = new elasticsearch.Client();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get all Digestors                                                //
@@ -278,8 +278,6 @@ exports.create = function(request, response, next) {
         });
     }
     
-    initIndex();
-
     response.on('finish', logRequest);
     response.on('data', function (chunk) {
         log.responseBody += chunk;

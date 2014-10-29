@@ -47,10 +47,8 @@ var digestor_schema = require('../models/digestor'),
 var account_schema = require('../models/account'),
     Account = mongoose.model('Account', account_schema);
 
-exports.sendNotification = function () {
-}
-
 exports.setup = function(server) {
+    'use strict';
 	var socket = socketio.listen(server);
     ///////////////////////////////////////////////////////////////////////////////
     // socket.io                                                                 //
@@ -69,7 +67,7 @@ exports.setup = function(server) {
     });
     socket.on('disconnect', function () {
         console.log("Socket disconnected");
-        socket.emit('pageview', { 'connections': Object.keys(io.connected).length });
+        socket.emit('pageview', { 'connections': Object.keys(socket.connected).length });
     });
     socket.use(function(socket, next) {
         var handshakeData = socket.request;
@@ -83,6 +81,6 @@ exports.setup = function(server) {
     });
 
     return socket;
-}
+};
 
 

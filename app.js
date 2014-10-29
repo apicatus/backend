@@ -56,7 +56,8 @@ var fs = require('fs'),
     DigestCtl = require('./controllers/digest'),
     Importer = require('./controllers/importer'),
     Throttle = require('./services/throttle');
-    notifierService = require('./services/notifier');
+    notifierService = require('./services/notifier'),
+    elasticsearch = require('elasticsearch');
 
 ///////////////////////////////////////////////////////////////////////////////
 // Run app                                                                   //
@@ -82,7 +83,7 @@ var generateMongoUrl = function(conf) {
     }
 };
 ////////////////////////////////////////////////////////////////////////////////
-// MongoDB Connection setup                                                   //
+// Aplication setup database and http & sockets                               //
 ////////////////////////////////////////////////////////////////////////////////
 var init = function() {
     'use strict';
@@ -90,21 +91,29 @@ var init = function() {
     var mongoUrl = null;
     var io = null;
     var server = null;
+    var elastica = null;
     // In some test context it may be a good idea to init the service
     // from whitin the test unit instead
     if(conf.autoStart) {
         mongoUrl = generateMongoUrl(conf.mongoUrl);
-        // Connect mongoose
+        ///////////////////////////////////////////////////////////////////////////////
+        // Connect mongoose                                                          //
+        ///////////////////////////////////////////////////////////////////////////////
         DB = mongoose.connect(mongoUrl);
-        // Start listening
-        //server = app.listen(conf.listenPort, conf.ip);
+        ///////////////////////////////////////////////////////////////////////////////
+        // Connect to elasticsearch                                                  //
+        ///////////////////////////////////////////////////////////////////////////////
+        elastica = new elasticsearch.Client(config.elasticsearch);
+        ///////////////////////////////////////////////////////////////////////////////
+        // Start listening prod HTTP or HTTPS                                        //
+        ///////////////////////////////////////////////////////////////////////////////
         if(conf.ssl) {
             server = https.createServer(conf.ssl, app).listen(conf.listenPort, conf.ip);
         } else {
             server = http.createServer(app).listen(conf.listenPort, conf.ip);
         }
         ///////////////////////////////////////////////////////////////////////////////
-        // Setup Notification Service                                                //
+        // Setup Socket.IO Notification Service                                      //
         ///////////////////////////////////////////////////////////////////////////////
         notifierService.setup(server)
         console.log('connected to: %s:%s', conf.ip, conf.listenPort);
@@ -304,7 +313,9 @@ app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
 app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
 app.get('/getBytesTransferred/:id', ensureAuthenticated, Analytics.getBytesTransferred);
 
-//app.route('metrics/:entity/:id/:type')
+app.get('/analitics/:entity/:id', Analytics.statuses);
+app.get('/terms/:entity/:id', Analytics.statusTerms);
+app.get('/timestatistics/:entity/:id', Analytics.timeStatistics);
 // metric/digestor/12345/time
 // metric/digestor/12345/bytes
 

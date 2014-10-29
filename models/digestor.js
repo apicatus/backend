@@ -67,6 +67,10 @@ var Methods = new Schema({
         headers: { type: Object, required: false },
         // TODO: convert to Buffer
         body: { type: String, required: false },
+        validator: {
+            schema: { type: Object, required: false },
+            enabled: { type: Boolean, required: false, default: false }
+        },
         contentType: { type: String, required: false }
     },
     authorizations: [Authorizations]

@@ -1272,7 +1272,7 @@ exports.metricsNew = function (request, response, next) {
     } else {
         // If empty then select the last 24hs
         until = new Date();
-        since = new Date().setHours(new Date().getHours() - 6);
+        since = new Date().setMinutes(new Date().getMinutes() - 60);
     }
 
     console.log("query: ", query)
@@ -1370,6 +1370,401 @@ exports.metricsNew = function (request, response, next) {
         return next(error);
     });
 };
+
+exports.statuses = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setMinutes(new Date().getMinutes() - 60);
+    }
+
+    var search = {
+        query: {
+            match_all: {}
+        },
+        "facets": {
+            "200": {
+                "date_histogram": {
+                    "field": "date",
+                    "interval": "1m",
+                },
+                "global": true,
+                "facet_filter": {
+                    "fquery": {
+                        "query": {
+                            "filtered": {
+                                "query": {
+                                    "query_string": {
+                                        "query": "status:200"
+                                    }
+                                },
+                                "filter": {
+                                    "bool": {
+                                        "must": [{
+                                            "range": {
+                                                "date": {
+                                                    "from": since,
+                                                    "to": until
+                                                }
+                                            }
+                                        }, {
+                                            fquery: {
+                                                query: {
+                                                    query_string: {
+                                                        query: "method:" + request.params.id
+                                                    }
+                                                }
+                                            }
+                                        }, {
+                                            "exists": {
+                                                "field": "status"
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "400": {
+                "date_histogram": {
+                    "field": "date",
+                    "interval": "1m",
+                    "min_doc_count": 0,
+                },
+                "global": true,
+                "facet_filter": {
+                    "fquery": {
+                        "query": {
+                            "filtered": {
+                                "query": {
+                                    "query_string": {
+                                        "query": "status:400"
+                                    }
+                                },
+                                "filter": {
+                                    "bool": {
+                                        "must": [{
+                                            "range": {
+                                                "date": {
+                                                    "from": since,
+                                                    "to": until
+                                                }
+                                            }
+                                        }, {
+                                            fquery: {
+                                                query: {
+                                                    query_string: {
+                                                        query: "method:" + request.params.id
+                                                    }
+                                                }
+                                            }
+                                        }, {
+                                            "exists": {
+                                                "field": "status"
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "500": {
+                "date_histogram": {
+                    "field": "date",
+                    "interval": "1m",
+                },
+                "global": true,
+                "facet_filter": {
+                    "fquery": {
+                        "query": {
+                            "filtered": {
+                                "query": {
+                                    "query_string": {
+                                        "query": "status:500"
+                                    }
+                                },
+                                "filter": {
+                                    "bool": {
+                                        "must": [{
+                                            "range": {
+                                                "date": {
+                                                    "from": since,
+                                                    "to": until
+                                                }
+                                            }
+                                        }, {
+                                            fquery: {
+                                                query: {
+                                                    query_string: {
+                                                        query: "method:" + request.params.id
+                                                    }
+                                                }
+                                            }
+                                        }, {
+                                            "exists": {
+                                                "field": "status"
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    };
+    client.search({
+        index: 'logs',
+        type: 'log',
+        size: query.limit || 10,
+        from: query.from || 0,
+        body: search,
+    }).then(function (metrics) {
+        if(!metrics.facets) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json({
+            statuses: {
+                500: metrics.facets["500"].entries,
+                400: metrics.facets["400"].entries,
+                200: metrics.facets["200"].entries
+            }
+        });
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+exports.statusTerms = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setMinutes(new Date().getMinutes() - 60);
+    }
+
+    var search = {
+        query: {
+            match_all: {}
+        },
+        "facets": {
+            "terms": {
+                "terms": {
+                    "field": "status",
+                    "size": 10,
+                    "order": "term",
+                    "exclude": []
+                },
+                "facet_filter": {
+                    "fquery": {
+                        "query": {
+                            "filtered": {
+                                "query": {
+                                    "bool": {
+                                        "should": [{
+                                            "query_string": {
+                                                "query": "status=200"
+                                            }
+                                        }, {
+                                            "query_string": {
+                                                "query": "status=400"
+                                            }
+                                        }, {
+                                            "query_string": {
+                                                "query": "status=500"
+                                            }
+                                        }]
+                                    }
+                                },
+                                "filter": {
+                                    "bool": {
+                                        "must": [{
+                                            "range": {
+                                                "date": {
+                                                    "from": since,
+                                                    "to": until
+                                                }
+                                            }
+                                        }, {
+                                            fquery: {
+                                                query: {
+                                                    query_string: {
+                                                        query: request.params.entity + ":" + request.params.id
+                                                    }
+                                                }
+                                            }
+                                        }, {
+                                            "exists": {
+                                                "field": "status"
+                                            }
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        size: query.limit || 10,
+        from: query.from || 0,
+        body: search,
+    }).then(function (metrics) {
+        if(!metrics.facets) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.facets.terms.terms);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+exports.timeStatistics = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setMinutes(new Date().getMinutes() - 60);
+    }
+
+
+    var search = {
+        "query": {
+            "filtered" : { 
+                "filter": { 
+                    "bool": {
+                        "must": [{
+                            "range" : { 
+                                date: {
+                                    from: since,
+                                    to: until
+                                }
+                            }
+                        },
+                        {
+                            "fquery": {
+                                "query": {
+                                    "query_string": {
+                                        "query": request.params.entity + ":" + request.params.id
+                                    }
+                                },
+                                "_cache": true
+                            }
+                        }]
+                    }
+                } 
+            }
+        },
+        "aggregations": {
+            "time_tatistics": {
+                "date_histogram": {
+                    "field": "date",
+                    "interval": "1m",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                        "min": since,
+                        "max": until
+                    }
+                },
+                "aggregations": {
+                    "time_percentiles": {
+                        "percentiles": {
+                            field: "time"
+                        }
+                    },
+                    "time_stats": {
+                        "stats": {
+                            field: "time"
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        size: query.limit || 10,
+        from: query.from || 0,
+        body: search,
+    }).then(function (metrics) {
+        if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.aggregations.time_tatistics.buckets);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
 exports.metrics = function (request, response, next) {
     'use strict';
 
@@ -1441,3 +1836,63 @@ exports.metrics = function (request, response, next) {
         response.json(model);
     });
 };
+
+/*
+AGGREGATE MISSING BUCKETS
+var search = {
+        "query": {
+            "filtered" : { 
+                "filter": { 
+                    "bool": {
+                        "must": [{
+                            "range" : { 
+                                date: {
+                                    from: since,
+                                    to: until
+                                }
+                            }
+                        },
+                        {
+                            "fquery": {
+                                "query": {
+                                    "query_string": {
+                                        "query": "status:500"
+                                    }
+                                },
+                                "_cache": true
+                            }
+                        },{
+                            fquery: {
+                                query: {
+                                    query_string: {
+                                        query: "method:" + request.params.id
+                                    }
+                                }
+                            }
+                        }]
+                    }
+                } 
+            }
+        },
+        "aggregations": {
+            "dates_with_holes": {
+                "date_histogram": {
+                    "field": "date",
+                    "interval": "1m",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                        "min": since,
+                        "max": until
+                    }
+                },
+                "aggregations": {
+                    "time_stats": {
+                        "stats": {
+                            field: "status"
+                        }
+                    }
+                }
+            }
+        }
+    };
+*/    

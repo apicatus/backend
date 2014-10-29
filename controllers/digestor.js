@@ -36,7 +36,8 @@
 
 // Controllers
 var mongoose = require('mongoose'),
-    url = require('url');
+    url = require('url')
+    jsonValidator = require('tv4');
 
 // Load model
 var digestor_schema = require('../models/digestor'),
@@ -224,6 +225,8 @@ exports.updateOne = function (request, response, next) {
 
     var token = request.headers.token;
     delete request.body._id;
+
+    //var validator = jsonValidator.validateMultiple();
     function gotUser(error, user) {
         if (error || !user) {
             response.statusCode = 500;

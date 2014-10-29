@@ -39,7 +39,8 @@ var DigestorMdl = require('../models/digestor'),
     url = require('url'),
     config = require('../config'),
     http = require('http'),
-    https = require('https');
+    https = require('https'),
+    jsonValidator = require('tv4');
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,12 +99,13 @@ exports.pathMatch = function(route, path) {
 // @param {Object} next                                                      //
 //                                                                           //
 // @api private                                                              //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 exports.digestRequest = function(request, response, next) {
     'use strict';
 
-    console.log("digest", request.headers['content-length']);
+    console.log("-------------------------------------------------------------------------------");
+    console.log("digest", request.url);
+    console.log("-------------------------------------------------------------------------------");
     if (!request.headers.host) {
         console.log("skip digest");
         return next();
@@ -143,6 +145,9 @@ exports.digestRequest = function(request, response, next) {
         request.pause();
         var proxyUrlParts = url.parse(method.proxy.URI, true, true);
 
+        ///////////////////////////////////////////////////////////////////////
+        // Setup request options                                             //
+        ///////////////////////////////////////////////////////////////////////
         var options = {
             hostname: proxyUrlParts.hostname,
             port: proxyUrlParts.port | 80,
@@ -151,19 +156,20 @@ exports.digestRequest = function(request, response, next) {
             // headers: request.headers TODO setup custom request headers in the app
         };
 
+        ///////////////////////////////////////////////////////////////////////
+        // Match request protocol                                            //
+        ///////////////////////////////////////////////////////////////////////
         var protocol = null;
         if(proxyUrlParts.protocol.match("https")) {
             protocol = https;
+            // Set port or default to 443 (SSL)
             options.port = proxyUrlParts.port || 443;
         } else {
             protocol = http;
         }
-        console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(options, null, 4), "\nprotocol: ", proxyUrlParts.protocol, "\n");
+        console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(proxyUrlParts, null, 4));
 
         var pipedRequest = protocol.request(options, function(pipedResponse) {
-            console.log('STATUS: ' + pipedResponse.statusCode + '\n');
-            console.log('HEADERS: ' + JSON.stringify(pipedResponse.headers, null ,4) + '\n');
-
             // Set status
             response.statusCode = pipedResponse.statusCode;
             // Set headers
@@ -176,7 +182,6 @@ exports.digestRequest = function(request, response, next) {
             pipedResponse.setEncoding('utf8');
             pipedResponse.on('data', function (chunk) {
                 log.data += chunk;
-                //response.send(chunk);
             });
             pipedResponse.on('end', function() {                
                 console.log("response ended");
@@ -222,16 +227,25 @@ exports.digestRequest = function(request, response, next) {
         return method[0];
     };
     var digest = function(digestor, route, httpMethod) {
+        var validatorOutput = null;
         var method = getMethodByRoute(digestor, route, httpMethod);
         if(method) {
-            // Create Log
+            ///////////////////////////////////////////////////////////////
+            // Log request                                               //
+            ///////////////////////////////////////////////////////////////
             var log = LogsCtl.create(request, response, next);
             log.digestor = digestor._id;
             log.method = method._id;
-            // If proxy is enabled and valid then pipe request
+            ///////////////////////////////////////////////////////////////
+            // If proxy is enabled and valid then pipe request           //
+            ///////////////////////////////////////////////////////////////
             if(method.proxy && method.proxy.enabled && method.proxy.URI) {
                 proxyRequest(method, request, response, log);
             } else {
+
+                ///////////////////////////////////////////////////////////////
+                // Set custom headers                                        //
+                ///////////////////////////////////////////////////////////////
                 if(method.response.headers && method.response.headers.length > 0) {
                     method.response.headers.forEach(function(header){
                         if(header.name && header.value) {
@@ -239,13 +253,31 @@ exports.digestRequest = function(request, response, next) {
                         }
                     });
                 }
+
+                ///////////////////////////////////////////////////////////////
+                // Validate input data                                       //
+                ///////////////////////////////////////////////////////////////
+                if(method.response.validator.enabled && Object.keys(request.body).length > 0 && method.response.contentType == 'application/json') {
+                    validatorOutput = jsonValidator.validateMultiple(request.body, JSON.parse(method.response.validator.schema));
+                    if(!validatorOutput.valid) {
+                        response.statusCode = 400;
+                        response.json(validatorOutput);
+                        return next();
+                    }
+                }
+                ///////////////////////////////////////////////////////////////
+                // Set content-type & status code default use if nessesary   //
+                ///////////////////////////////////////////////////////////////
                 response.set('content-type', method.response.contentType || 'application/json');
                 response.statusCode = method.response.statusCode || 200;
-                // Allow raw data to be sent unless Content-Type is previously defined
+
+                ///////////////////////////////////////////////////////////////
+                // Send data as raw buffer contet-type will take care        //
+                ///////////////////////////////////////////////////////////////
                 if(method.response.body) {
                     response.send(new Buffer(method.response.body));
                 } else {
-                    // Send empty response
+                    // Handle no response response body
                     response.send(new Buffer(""));
                 }
             }
