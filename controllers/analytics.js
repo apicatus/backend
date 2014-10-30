@@ -43,14 +43,17 @@
 */
 
 // Controllers
-var mongoose = require('mongoose'),
-    Schema = mongoose.Schema,
-    ObjectId = mongoose.Types.ObjectId
+var config = require('../config'),
+    mongoose = require('mongoose'),
+    elasticsearch = require('elasticsearch');
+    moment = require('moment'),
     url = require('url'),
     UAParser = require('ua-parser-js'),
     acceptLanguage = require('../services/accParser'),
-    config = require('../config'),
-    elasticsearch = require('elasticsearch');
+    Schema = mongoose.Schema,
+    ObjectId = mongoose.Types.ObjectId;
+    
+    
 
 // Load models
 var logs_schema = require('../models/logs'),
@@ -1678,7 +1681,8 @@ exports.timeStatistics = function (request, response, next) {
         method: ''
     };
     var query = url.parse(request.url, true).query;
-    var since, until;
+    var since, until, tzone;
+
     // Very crude ISO-8601 date pattern matching
     var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
 
@@ -1686,11 +1690,10 @@ exports.timeStatistics = function (request, response, next) {
         since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
         until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
     } else {
-        // If empty then select the last 24hs
-        until = new Date();
+        // If empty then select the last 60 minutes
         since = new Date().setMinutes(new Date().getMinutes() - 60);
+        until = new Date().getTime();
     }
-
 
     var search = {
         "query": {
@@ -1720,7 +1723,7 @@ exports.timeStatistics = function (request, response, next) {
             }
         },
         "aggregations": {
-            "time_tatistics": {
+            "statistics": {
                 "date_histogram": {
                     "field": "date",
                     "interval": "1m",
@@ -1742,6 +1745,11 @@ exports.timeStatistics = function (request, response, next) {
                         }
                     }
                 }
+            },
+            "sum_statistics": {
+                "extended_stats": {
+                    "field": "time"
+                }
             }
         }
     };
@@ -1757,7 +1765,198 @@ exports.timeStatistics = function (request, response, next) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
-        return response.json(metrics.aggregations.time_tatistics.buckets);
+        return response.json({
+            buckets: metrics.aggregations.statistics.buckets,
+            sum: metrics.aggregations.sum_statistics
+        });
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+exports.transferStatistics = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until, tzone;
+
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 60 minutes
+        since = new Date().setMinutes(new Date().getMinutes() - 60);
+        until = new Date().getTime();
+    }
+
+    var search = {
+        "query": {
+            "filtered" : { 
+                "filter": { 
+                    "bool": {
+                        "must": [{
+                            "range" : { 
+                                date: {
+                                    from: since,
+                                    to: until
+                                }
+                            }
+                        },
+                        {
+                            "fquery": {
+                                "query": {
+                                    "query_string": {
+                                        "query": request.params.entity + ":" + request.params.id
+                                    }
+                                },
+                                "_cache": true
+                            }
+                        }]
+                    }
+                } 
+            }
+        },
+        "aggregations": {
+            "statistics": {
+                "date_histogram": {
+                    "field": "date",
+                    "interval": "1m",
+                    "min_doc_count": 0,
+                    "extended_bounds": {
+                        "min": since,
+                        "max": until
+                    }
+                },
+                "aggregations": {
+                    "transfer_percentiles": {
+                        "percentiles": {
+                            field: "responseHeaders.content-length"
+                        }
+                    },
+                    "transfer_stats": {
+                        "stats": {
+                            field: "responseHeaders.content-length"
+                        }
+                    }
+                }
+            },
+            "sum_statistics": {
+                "extended_stats": {
+                    "field": "responseHeaders.content-length"
+                }
+            }
+        }
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        size: query.limit || 10,
+        from: query.from || 0,
+        body: search,
+    }).then(function (metrics) {
+        if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json({
+            buckets: metrics.aggregations.statistics.buckets,
+            sum: metrics.aggregations.sum_statistics
+        });
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+exports.countryStatistics = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until, tzone;
+
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 60 minutes
+        since = new Date().setMinutes(new Date().getMinutes() - 60);
+        until = new Date().getTime();
+    }
+
+    var search = {
+        "query": {
+            "filtered" : { 
+                "filter": { 
+                    "bool": {
+                        "must": [{
+                            "range" : { 
+                                date: {
+                                    from: since,
+                                    to: until
+                                }
+                            }
+                        },
+                        {
+                            "fquery": {
+                                "query": {
+                                    "query_string": {
+                                        "query": request.params.entity + ":" + request.params.id
+                                    }
+                                },
+                                "_cache": true
+                            }
+                        }]
+                    }
+                } 
+            }
+        },
+        "facets": {
+            "map": {
+                "terms": {
+                    "field": "geo.country",
+                    "size": 100,
+                    "exclude": []
+                }
+            }
+        }
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        size: query.limit || 10,
+        from: query.from || 0,
+        body: search,
+    }).then(function (metrics) {
+        if(!metrics.facets) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.facets.map.terms);
     }, function (error, body, code) {
         console.trace("error: ", error.message);
         if (error) throw new Error(error);

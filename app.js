@@ -103,7 +103,7 @@ var init = function() {
         ///////////////////////////////////////////////////////////////////////////////
         // Connect to elasticsearch                                                  //
         ///////////////////////////////////////////////////////////////////////////////
-        elastica = new elasticsearch.Client(config.elasticsearch);
+        elastica = new elasticsearch.Client(conf.elasticsearch);
         ///////////////////////////////////////////////////////////////////////////////
         // Start listening prod HTTP or HTTPS                                        //
         ///////////////////////////////////////////////////////////////////////////////
@@ -316,6 +316,10 @@ app.get('/getBytesTransferred/:id', ensureAuthenticated, Analytics.getBytesTrans
 app.get('/analitics/:entity/:id', Analytics.statuses);
 app.get('/terms/:entity/:id', Analytics.statusTerms);
 app.get('/timestatistics/:entity/:id', Analytics.timeStatistics);
+app.get('/transferstatistics/:entity/:id', Analytics.transferStatistics);
+app.get('/countrystatistics/:entity/:id', Analytics.countryStatistics);
+
+
 // metric/digestor/12345/time
 // metric/digestor/12345/bytes
 
