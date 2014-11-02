@@ -127,7 +127,7 @@ exports.digestRequest = function(request, response, next) {
 
     // Lookup
     //DigestorMdl.findOne({'endpoints.methods.URI':  pathname}, 'endpoints.methods')
-    DigestorMdl.findOne({domain: subdomainArray[0].toLowerCase()})
+    DigestorMdl.findOne({subdomain: subdomainArray[0].toLowerCase()})
     .exec(function(error, digestor) {
         if (error) {
             response.statusCode = 500;
@@ -148,12 +148,14 @@ exports.digestRequest = function(request, response, next) {
         ///////////////////////////////////////////////////////////////////////
         // Setup request options                                             //
         ///////////////////////////////////////////////////////////////////////
+        //request.headers['Content-length'] = '';
+
         var options = {
             hostname: proxyUrlParts.hostname,
             port: proxyUrlParts.port | 80,
-            path: proxyUrlParts.path,
+            path: proxyUrlParts.path + url_parts.search,
             method: method.method.toUpperCase(),
-            // headers: request.headers TODO setup custom request headers in the app
+            headers: request.headers
         };
 
         ///////////////////////////////////////////////////////////////////////
@@ -167,7 +169,7 @@ exports.digestRequest = function(request, response, next) {
         } else {
             protocol = http;
         }
-        console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(proxyUrlParts, null, 4));
+        console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(options, null, 4));
 
         var pipedRequest = protocol.request(options, function(pipedResponse) {
             // Set status
@@ -181,7 +183,7 @@ exports.digestRequest = function(request, response, next) {
             // Default encodnig
             pipedResponse.setEncoding('utf8');
             pipedResponse.on('data', function (chunk) {
-                log.data += chunk;
+                log.data = chunk;
             });
             pipedResponse.on('end', function() {                
                 console.log("response ended");

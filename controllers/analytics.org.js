@@ -189,10 +189,876 @@ exports.languages = function (request, response, next) {
 exports.performance = function (request, response, next) {
     'use strict';
 
+    var token = request.headers.token;
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    console.log("id: ", query);
+
+    parseQuery(request);
+    // and here are the grouping request:
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until)
+                },
+                status: {
+                    $gte: 100
+                },
+                digestor: { $in: request.user.digestors }
+            }
+        },
+        {
+            $match: {
+                digestor: ObjectId.createFromHexString(query.id)
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                status: 1,
+                success: { $cond: [{$lt: ['$status', 400]}, 1, 0]}, // add 1
+                error: { $cond: [{$gte: ['$status', 400]}, 1, 0]},
+                cache: { $cond: [{$eq: ['$status', 304]}, 1, 0]},
+                //date: {year: {$year: '$date'}, month: {$month: '$date'}, day: {$dayOfMonth: '$date'}}
+                //timestamp: {day: {$dayOfMonth: '$date'}},
+                timestamp: {year: { $year: '$date' }, day: {$dayOfMonth: '$date'}, month: { $month: '$date' }},
+                date: '$date',
+                index: { $const:[0,1] }
+                //date: { hour: { $hour: '$date' } }
+            }
+        },
+        {
+            $group: {
+                //_id: {c: '$country', n: '$name' },
+                _id: '$timestamp',
+                error: { $sum: '$error'},
+                success: { $sum: '$success' },
+                cache:  { $sum: '$cache' },
+                vv: { $push: {$dayOfMonth: '$date'}},
+                total: { $sum: 1 },
+            }
+        },
+        {
+            $sort: {
+                total: 1
+            }
+        },
+        {
+            $limit: 100
+        }
+    ];
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        response.json(model);
+    });
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Route to get platform statistics                                          //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.getto = function (request, response, next) {
+    'use strict';
+
+    var token = request.headers.token;
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    console.log("since: ", new Date(since), " until: ", new Date(until), " dig: ", request.user.digestors);
+
+    var fx = {
+        map: function() {
+            print("cosasss");
+            emit(this.digestor, {
+                time: this.time,
+                digestors: digestors
+            });
+        },
+        reduce: function(key, values) {
+            return {
+                matrix: digestors
+            };
+        },
+        finalize: function(key, value) {
+            return value;
+        },
+        out: { inline: 1 },
+        verbose: true,
+        scope: {
+            digestors: request.user.digestors
+        },
+        query: {
+            date: {
+                '$gte': new Date(since),
+                '$lt': new Date(until),
+            }
+        }
+    };
+    // a promise is returned so you may instead write
+    var promise = Logs.mapReduce(fx, function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        console.log('map reduce took %d ms', stats.processtime);
+        response.json(model);
+    });
+};
+exports.metrixx = function (request, response, next) {
+    'use strict';
+
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+    parseQuery(request);
+    console.log("metrixx: since: ", new Date(since), " until: ", new Date(until), " dig: ", request.params.id);
+    // and here are the grouping request:
+    var aggregate = [{
+        $match: {
+            time: {
+                $gte: 0
+            },
+            date: {
+                $gte: new Date(since),
+                $lt: new Date(until)
+            },
+            status: {
+                $gte: 100
+            },
+            digestor: ObjectId(request.params.id)
+        }
+    }, {
+        $project: {
+            _id: 0, // let's remove bson id's from request's result
+            status: 1,
+            time: 1,
+            date: 1, //{ year: { $year: '$date' }, month: { $month: '$date' }, day: {$dayOfMonth: '$date'} },
+            method: 1
+        }
+    }, {
+        $group: {
+            //_id: {c: '$country', n: '$name' },
+            _id: {
+                method: '$method',
+                date: '$date'
+            },
+            avg_time: { $avg: '$time' },
+            max_time: { $max: '$time' },
+            min_time: { $min: '$time' },
+            timex: { $sum: '$time' },
+            total: { $sum: 1 },
+        }
+    }, {
+        $project: {
+            _id: 0,
+            method: '$_id.method',
+            total: 1,
+            dataset: {
+                date: '$_id.date',
+                time: {
+                    avg: '$avg_time',
+                    max: '$max_time',
+                    min: '$min_time',
+                    time: '$timex',
+                }
+            }
+        }
+    }, {
+        $group: {
+            _id: '$method',
+            dataset: {
+                $push: {
+                    timestamp: '$dataset.date',
+                    data: '$dataset.time.time'
+                }
+            },
+            total: { $sum: '$total' },
+            avg: { $avg: '$dataset.time.avg' },
+            min: { $min: '$dataset.time.min' },
+            max: { $max: '$dataset.time.max' }
+        }
+    }];
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            console.log("ERROR!");
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            console.log("not found !");
+            response.statusCode = 204;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        response.json(model);
+    });
+};
+
+exports.summaryStats = function (request, response, next) {
+    'use strict';
+
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    /*since = new Date(2013, 1, 1);
+    until = new Date();*/
+    parseQuery(request);
+    // and here are the grouping request:
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until)
+                },
+                status: {
+                    $gte: 100
+                },
+                digestor: { $in: request.user.digestors }
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                status: 1,
+                time: 1,
+                date: { year: { $year: '$date' }, month: { $month: '$date' }, day: {$dayOfMonth: '$date'} },
+                day: { $dayOfMonth: '$date' },
+                digestor: 1
+            }
+        },
+        {
+            $group: {
+                _id: { digestor:'$digestor', date: '$date' },
+                avg_time: { $avg: '$time' },
+                max_time: { $max: '$time' },
+                min_time: { $min: '$time' },
+                /*data: {
+                    $addToSet: {
+                        day: '$day',
+                        time: '$time'
+                    }
+                },*/
+                total: { $sum: 1 },
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                digestor: '$_id.digestor',
+                total: 1,
+                //data: 1,
+                dataset: {
+                    date: '$_id.date',
+                    time: {
+                        avg: '$avg_time',
+                        max: '$max_time',
+                        min: '$min_time'
+                    },
+                    total: '$total'
+                }
+            }
+        },
+        {
+            $group: {
+                _id: '$digestor',
+                dataset: {
+                    $push: '$dataset'
+                },
+                total: { $sum: '$dataset.total' },
+                avg_time: { $avg: '$dataset.time.avg'}
+                /*time: {
+                    avg: { $avg: '$dataset.time.avg' },
+                    max: { $max: '$dataset.time.max' },
+                    min: { $min: '$dataset.time.min' }
+                }*/
+            }
+        },
+        {
+            $sort: {
+                dataset: 1
+            }
+        },
+        {
+            $limit: 100
+        }
+    ];
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        console.log("model", model);
+        model.forEach(function(data, index){
+            data.dataset.forEach(function(set){
+                var date = set.date;
+                set.date = new Date(date.year, date.month - 1, date.day);
+            })
+        })
+        response.json(model);
+    });
+};
+///////////////////////////////////////////////////////////////////////////////
+// Query bytes in out from                                                   //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.getBytesTransferred = function (request, response, next) {
+
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setHours(new Date().getHours() - 6);
+    }
+    var xQuery = parseQuery(request);
+
+    console.log("getBytesTransferred: since: ", query);
+
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until)
+                },
+                status: {
+                    $gte: 100
+                },
+                digestor: ObjectId(request.params.id)
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                method: 1,
+                success: { $cond: [{$lt: ['$status', 400]}, 1, 0]}, // add 1
+                error: { $cond: [{$gte: ['$status', 400]}, 1, 0]},
+                cache: { $cond: [{$eq: ['$status', 304]}, 1, 0]},
+                bytesOut: {$ifNull: ['$responseHeaders.content-length', 0]},
+                timestamp: {year: { $year: '$date' }, day: {$dayOfMonth: '$date'}, month: { $month: '$date' }, hour: { $hour: '$date'}, minute: { $minute: '$date'}},
+            }
+        },
+        {
+            $group: {
+                _id: { method:'$method', minute: '$timestamp.minute'},
+                error: { $sum: '$error'},
+                success: { $sum: '$success' },
+                cache:  { $sum: '$cache' },
+                bytesOut: { $sum: '$bytesOut' },
+                total: { $sum: 1 },
+            }
+        },
+        {
+            $sort: {
+                '_id.date': -1
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                method: '$_id.method',
+                dataset: {
+                    ts: '$_id.minute',
+                    out: '$bytesOut',
+                    //in
+                }
+            }
+        },
+        {
+            $group: {
+                _id: '$method',
+                dataset: {
+                    $push: { 
+                        ts: '$dataset.ts',
+                        out: '$dataset.out',
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 1,
+                bytesOut: '$dataset.out'
+            }
+        },
+        {
+            $limit: 100
+        }
+    ];
 
 
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            console.log("ERROR!");
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            console.log("not found !");
+            response.statusCode = 204;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        response.json(model);
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Route to get platform statistics                                          //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.getBytesTransferred2 = function (request, response, next) {
+
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+    parseQuery(request);
+    
+    console.log("metrixx: since: ", new Date(since), " until: ", new Date(until), " dig: ", request.params.id);
+    
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gte: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until),
+                },
+                digestor: ObjectId(request.params.id)
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                time: 1,
+                bytesIn: {$ifNull: ['$requestHeaders.content-length', 0]}, // and let's turn the nested field into usual field (usual renaming)
+                bytesOut: {$ifNull: ['$responseHeaders.content-length', 0]}, // and let's turn the nested field into usual field (usual renaming)
+                date: 1,
+                method: 1
+            }
+        },
+        {
+            $group: {
+                //_id: {c: '$country', n: '$name' },
+                _id: { method:'$method', date: '$date', out: '$bytesOut', in: '$bytesIn' },
+                total: { $sum: 1 }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                method: '$_id.method',
+                total: 1,
+                bytesOut_avg: 1,
+                dataset: {
+                    date: '$_id.date',
+                    out: '$_id.out',
+                    in: '$_id.in'
+                },
+            }
+        },
+        {
+            $group: {
+                _id: '$method',
+                dataset: {
+                    $push: { 
+                        timestamp: '$dataset.date', 
+                        out: {
+                            bytes: '$dataset.out' 
+                        },
+                        in: {
+                            bytes: '$dataset.in' 
+                        }
+                    }
+                },
+                sum_out: { $sum: '$dataset.out' },
+                avg_out: { $avg: '$dataset.out' },
+                max_out: { $max: '$dataset.out' },
+                min_out: { $min: '$dataset.out' },
+                
+                sum_in: { $sum: '$dataset.in' },
+                avg_in: { $avg: '$dataset.in' },
+                max_in: { $max: '$dataset.in' },
+                min_in: { $min: '$dataset.in' }
+            }
+        },
+        {
+            $project: {
+                _id: 1,
+                total: 1,
+                bytesOut_avg: 1,
+                dataset: 1,
+                summary: {
+                    out: {
+                        total: '$sum_out',
+                        avg: '$avg_out',
+                        max: '$max_out',
+                        min: '$min_out'
+                    },
+                    in: {
+                        total: '$sum_in',
+                        avg: '$avg_in',
+                        max: '$max_in',
+                        min: '$min_in'
+                    }
+                }
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $limit: 100
+        }
+    ];
+
+   // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            console.log("ERROR!");
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            console.log("not found !");
+            response.statusCode = 204;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        response.json(model);
+    });
+};
+///////////////////////////////////////////////////////////////////////////////
+// Route to get platform statistics                                          //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.contentLength = function (request, response, next) {
+    'use strict';
+
+    var token = request.headers.token;
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    since = new Date(2014, 3, 16);
+    until = new Date();
+    //console.log("since: ", new Date(since), " until: ", new Date(until));
+    parseQuery(request);
+
+    // and here are the grouping request:
+    var fx = {
+        map: function() {
+            emit(this.digestor, {
+                date: this.date,
+                bytesIn: parseInt(this.requestHeaders['content-length'], 10) || 0,
+                bytesOut: parseInt(this.responseHeaders['content-length'], 10) || 0
+            });
+        },
+        reduce: function(key, values) {
+            /*Array.prototype.min = function () {
+                return this.reduce(function (p, v) {
+                    return ( p < v ? p : v );
+                });
+            };
+            Array.prototype.max = function () {
+                return this.reduce(function (p, v) {
+                    return ( p > v ? p : v );
+                });
+            };*/
+            var bytesInArr = [];
+            var bytesOutArr = [];
+            for ( var i = 1; i < values.length; i++ ) {
+               bytesInArr.push(values[i].bytesIn);
+               bytesOutArr.push(values[i].bytesOut);
+            }
+            return {
+                "dataset": values,
+                "in": {
+                    "sum": Array.sum(bytesInArr),
+                    "avg": Array.avg(bytesInArr),
+                    "stdDev": Array.stdDev(bytesInArr),
+                    "max": Math.max.apply(Math, bytesInArr),
+                    "min": Math.min.apply(Math, bytesInArr)
+                },
+                "out": {
+                    "sum": Array.sum(bytesOutArr),
+                    "avg": Array.avg(bytesOutArr),
+                    "stdDev": Array.stdDev(bytesOutArr),
+                    "max": Math.max.apply(Math, bytesOutArr),
+                    "min": Math.min.apply(Math, bytesOutArr)
+                }
+            };
+        },
+        finalize: function(key, value) {
+            return value;
+        },
+        out: { inline: 1 },
+        verbose: true,
+        query: {
+            date: {
+                '$gte': new Date(since),
+                '$lt': new Date(until),
+            },
+            digestor: ObjectId.createFromHexString('535b97507899a672c49dd490')
+        }
+    };
+    // a promise is returned so you may instead write
+    var promise = Logs.mapReduce(fx, function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        console.log('map reduce took %d ms', stats.processtime);
+        response.json(model);
+    });
+};
+exports.contentLength2 = function (request, response, next) {
+    'use strict';
+
+    var token = request.headers.token;
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(new Date().getDate() - 7);
+    }
+
+    since = new Date(2014, 1, 1);
+    until = new Date();
+    console.log("since: ", new Date(since), " until: ", new Date(until));
+
+    // and here are the grouping request:
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until),
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                time: 1,
+                bytesIn: '$requestHeaders.content-length', // and let's turn the nested field into usual field (usual renaming)
+                bytesOut: '$responseHeaders.content-length', // and let's turn the nested field into usual field (usual renaming)
+                //date: {year: {$year: '$date'}, month: {$month: '$date'}, day: {$dayOfMonth: '$date'}}
+                date: {year: {$year: '$date'}}
+            }
+        },
+        {
+            $group: {
+                //_id: {c: '$country', n: '$name' },
+                _id: '$date',
+                bytesIn_sum: { $sum: '$bytesIn'},
+                bytesIn_max: { $max: '$bytesIn'},
+                bytesIn_min: { $min: '$bytesIn'},
+                bytesIn_avg: { $avg: '$bytesIn'},
+                bytesOut_sum: { $sum: '$bytesOut'},
+                bytesOut_max: { $max: '$bytesOut'},
+                bytesOut_min: { $min: '$bytesOut'},
+                bytesOut_avg: { $avg: '$bytesOut'},
+                total: { $sum: 1 }
+            }
+        },
+        {
+            $project: {
+                _id: 1,
+                in: {
+                    sum: '$bytesIn_sum',
+                    max: '$bytesIn_max',
+                    min: '$bytesIn_min',
+                    avg: '$bytesIn_avg'
+                },
+                out: {
+                    sum: '$bytesOut_sum',
+                    max: '$bytesOut_max',
+                    min: '$bytesOut_min',
+                    avg: '$bytesOut_avg'
+                },
+                total: 1
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $limit: 100
+        }
+    ];
+
+    var ln = acceptLanguage.parse('en-US,en;q=0.8,es-419;q=0.6,es;q=0.4');
+
+    console.log(ln);
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        response.json(model);
+    });
+};
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get platform statistics                                          //
 //                                                                           //
@@ -208,6 +1074,80 @@ exports.performance = function (request, response, next) {
 exports.platform = function (request, response, next) {
     'use strict';
 
+    var parser = new UAParser();
+    var token = request.headers.token;
+    var query = url.parse(request.url, true).query;
+    var since, until;
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(until.getDate() - 7);
+    }
+
+    console.log("since: ", new Date(since), " until: ", new Date(until));
+
+    var rules = [{'geo.country_name': '1'}, {time: {$gte: 0}}];
+    // and here are the grouping request:
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until),
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                ua: '$requestHeaders.user-agent', // and let's turn the nested field into usual field (usual renaming)
+            }
+        },
+        {
+            $group: {
+                _id: '$ua', // grouping key - group by field district
+                total: { $sum: 1 }
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $limit: 10
+        }
+    ];
+
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        var platforms = model.map(function(data, index) {
+            var ua = request.headers['user-agent'];
+            return {
+                ua: parser.setUA(data._id).getResult(),
+                total: data.total
+            };
+        });
+        response.json(platforms);
+    });
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -222,18 +1162,12 @@ exports.platform = function (request, response, next) {
 //                                                                           //
 // @url GET /platform                                                        //
 ///////////////////////////////////////////////////////////////////////////////
-exports.geoStatistics = function (request, response, next) {
+exports.geo = function (request, response, next) {
     'use strict';
 
-    var defaults = {
-        skip : 0,
-        limit : 0,
-        digestor: '',
-        method: ''
-    };
+    var token = request.headers.token;
     var query = url.parse(request.url, true).query;
-    var since, until, tzone;
-
+    var since, until;
     // Very crude ISO-8601 date pattern matching
     var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
 
@@ -241,138 +1175,71 @@ exports.geoStatistics = function (request, response, next) {
         since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
         until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
     } else {
-        // If empty then select the last 60 minutes
-        since = new Date().setDate(new Date().getDate() - 7);
-        until = new Date().getTime();
+        // If empty then select the last 24hs
+        until = new Date();
+        since = new Date().setDate(until.getDate() - 7);
     }
 
-    var search = function(since, until) {
-        var search = {
-            "query": {
-                "filtered" : { 
-                    "filter": { 
-                        "bool": {
-                            "must": [{
-                                "range" : { 
-                                    date: {
-                                        from: since,
-                                        to: until
-                                    }
-                                }
-                            }],
-                            "should": []
-                        }
-                    } 
-                }
-            },
-            "facets": {
-                "map": {
-                    "terms": {
-                        "field": "geo.country",
-                        "size": 100,
-                        "exclude": []
-                    }
-                }
-            },
-            "aggregations": {
-                "digestors": {
-                    "terms": {
-                        "field": "digestor"
-                    },
-                    "aggregations": {
-                        "dataset": {
-                            "terms": {
-                                "field": "geo.country"
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        if(request.params.entity && request.params.id) {
-            search.query.filtered.filter.bool.must.push({
-                "fquery": {
-                    "query": {
-                        "query_string": {
-                            "query": request.params.entity + ":" + request.params.id
-                        }
-                    },
-                    "_cache": true
-                }
-            });
-        } else {
-            request.user.digestors.forEach(function(digestor, index) {
-                search.query.filtered.filter.bool.should.push({
-                    "fquery": {
-                        "query": {
-                            "query_string": {
-                                "query": "digestor:" + digestor
-                            }
-                        },
-                        "_cache": true
-                    }
-                });
-            });
-        }
+    //since = new Date(2014, 3, 16);
+    //until = new Date(2014, 3, 18);
+    console.log("since: ", new Date(since), " until: ", new Date(until));
 
-        return search;
-    };
-
-    /*var search = {
-        "query": {
-            "filtered" : { 
-                "filter": { 
-                    "bool": {
-                        "must": [{
-                            "range" : { 
-                                date: {
-                                    from: since,
-                                    to: until
-                                }
-                            }
-                        },
-                        {
-                            "fquery": {
-                                "query": {
-                                    "query_string": {
-                                        "query": request.params.entity + ":" + request.params.id
-                                    }
-                                },
-                                "_cache": true
-                            }
-                        }]
-                    }
-                } 
+    var rules = [{'geo.country_name': '1'}, {time: {$gte: 0}}];
+    // and here are the grouping request:
+    var aggregate = [
+        {
+            $match: {
+                time: {
+                    $gt: 0
+                },
+                date: {
+                    $gte: new Date(since),
+                    $lt: new Date(until),
+                },
+                //digestor: ObjectId.createFromHexString('534ad53cc7467c0000655116')
+                //ip: '222.18.149.180'
             }
         },
-        "facets": {
-            "map": {
-                "terms": {
-                    "field": "geo.country",
-                    "size": 100,
-                    "exclude": []
-                }
+        {
+            $project: {
+                _id: 0, // let's remove bson id's from request's result
+                time: 1, // we need this field
+                country: '$geo.country_code', // and let's turn the nested field into usual field (usual renaming)
+                name: '$geo.country_name',
             }
+        },
+        {
+            $group: {
+                //_id: {c: '$country', n: '$name' },
+                _id: '$country', // grouping key - group by field district
+                minTime: { $min: '$time'}, // we need some stats for each group (for each district)
+                maxTime: { $max: '$time'},
+                avgTime: { $avg: '$time'},
+                total: { $sum: 1 }
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $limit: 10
         }
-    };*/
+    ];
 
-    client.search({
-        index: 'logs',
-        type: 'log',
-        body: search(since, until),
-    }).then(function (metrics) {
-        return response.json(metrics);
-
-        if(!metrics.facets) {
+    // a promise is returned so you may instead write
+    var promise = Logs.aggregate(aggregate)
+    .exec(function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
-        return response.json(metrics.facets.map.terms);
-    }, function (error, body, code) {
-        console.trace("error: ", error.message);
-        if (error) throw new Error(error);
-        response.statusCode = 500;
-        return next(error);
+        response.json(model);
     });
 };
 
@@ -407,7 +1274,7 @@ exports.metricsNew = function (request, response, next) {
         until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
     } else {
         // If empty then select the last 24hs
-        until = new Date().getTime();
+        until = new Date();
         since = new Date().setMinutes(new Date().getMinutes() - 60);
     }
 
@@ -1097,8 +1964,7 @@ exports.countryStatistics = function (request, response, next) {
         return next(error);
     });
 };
-
-exports.summary = function (request, response, next) {
+exports.metrics = function (request, response, next) {
     'use strict';
 
     var token = request.headers.token;
@@ -1112,320 +1978,64 @@ exports.summary = function (request, response, next) {
         until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
     } else {
         // If empty then select the last 24hs
+        until = new Date();
         since = new Date().setDate(new Date().getDate() - 7);
-        until = new Date().getTime();
     }
-    query.interval = query.interval || '1d'
 
-    var digestorsQuery = request.user.digestors.map(function(digestor, index) {
-        return {
-            fquery: {
-                query: {
-                    query_string: {
-                        query: "digestor:" + digestor
-                    }
-                },
-                _cache: true
+    since = new Date(2014, 3, 16);
+    until = new Date(2014, 3, 22);
+    console.log("since: ", new Date(since), " until: ", new Date(until));
+
+    var fx = {
+        map: function() {
+            emit(this.digestor, this.time);
+        },
+        reduce: function(key, values) {
+            var res = {
+                min: values[0],
+                max: values[0]
             }
-        };
-    });
-    digestorsQuery.push({
-        range : { 
+            for ( var i = 1; i < values.length; i++ ) {
+                if ( values[i] < res.min )
+                   res.min = values[i];
+                if ( values[i] > res.max )
+                   res.max = values[i];
+            }
+            return {
+                "sum": Array.sum(values),
+                "avg": Array.avg(values),
+                "stdDev": Array.stdDev(values),
+                "max": res.max,
+                "min": res.min
+            };
+        },
+        finalize: function(key, value) {
+            return value;
+        },
+        out: { inline: 1 },
+        verbose: true,
+        query: {
             date: {
-                from: since,
-                to: until
+                '$gte': new Date(since),
+                '$lt': new Date(until),
             }
         }
-    });
-
-    var facets = new Object();
-    request.user.digestors.forEach(function(digestor, index) {
-        facets[digestor] = {
-            date_histogram: {
-                key_field: 'date',
-                value_field: 'time',
-                interval: '1d'
-            },
-            global: true,
-            facet_filter: {
-                fquery: {
-                    query: {
-                        filtered: {
-                            filter: {
-                                bool: {
-                                    must: [{
-                                        range: {
-                                            date: {
-                                                from: since,
-                                                to: until
-                                            }
-                                        }
-                                    }, {
-                                        fquery: {
-                                            query: {
-                                                query_string: {
-                                                    query: 'digestor:' + digestor
-                                                }
-                                            }
-                                        }
-                                    }, {
-                                        exists: {
-                                            field: 'status'
-                                        }
-                                    }]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-    });
-
-    var search = function(since, until, interval) {
-        return {
-            "query": {
-                "filtered" : { 
-                    "filter": { 
-                        "bool": {
-                            "must": [{
-                                "range" : { 
-                                    date: {
-                                        from: since,
-                                        to: until
-                                    }
-                                }
-                            }, {
-                                exists: {
-                                    field: 'status'
-                                }
-                            }, {
-                                exists: {
-                                    field: 'digestor'
-                                }
-                            }]
-                        }
-                    } 
-                }
-            },
-            "aggregations": {
-                "digestors": {
-                    "terms": {
-                        "field": "digestor"
-                    },
-                    "aggregations": {
-                        "dataset": {
-                            "date_histogram": {
-                                "field": "date",
-                                "interval": interval,
-                                "min_doc_count": 0,
-                                "extended_bounds": {
-                                    "min": since,
-                                    "max": until
-                                }
-                            },
-                            "aggregations": {
-                                "time_stats": {
-                                    "stats": {
-                                        field: "time"
-                                    }
-                                }
-                            }
-                        },
-                        "percentiles": {
-                            "percentiles": {
-                                field: "time"
-                            }
-                        },
-                        "stats": {
-                            "stats": {
-                                field: "time"
-                            }
-                        }
-                    }
-                }
-            }
-        };
     };
-
-
-
-    //return response.json(search);
-    /*
-        index: 'logs',
-        type: 'log',
-        size: query.limit || 10,
-        from: query.from || 0,
-
-    */
-    client.msearch({
-        body: [
-            { index: 'logs', type: 'log' },
-            search(since, until, query.interval),
-            { index: 'logs', type: 'log' },
-            search(since - (until - since), since, query.interval)
-        ]
-    }).then(function (metrics) {
-        
-        if(metrics.responses.length > 2) {
+    // a promise is returned so you may instead write
+    var promise = Logs.mapReduce(fx, function (error, model, stats) {
+        if (error) {
+            response.statusCode = 500;
+            return next();
+        }
+        if(!model) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
-        return response.json({
-            current: metrics.responses[0].aggregations.digestors.buckets,
-            previous: metrics.responses[1].aggregations.digestors.buckets
-        });
-        //return response.json(metrics.aggregations.digestors.buckets);
-    }, function (error, body, code) {
-        console.trace("error: ", error.message);
-        if (error) throw new Error(error);
-        response.statusCode = 500;
-        return next(error);
+        console.log('map reduce took %d ms', stats.processtime);
+        response.json(model);
     });
 };
 
-/*
-var search = {
-        "query": {
-            "filtered" : { 
-                "filter": { 
-                    "bool": {
-                        "must": [{
-                            "range" : { 
-                                date: {
-                                    from: since,
-                                    to: until
-                                }
-                            }
-                        }, {
-                            exists: {
-                                field: 'status'
-                            }
-                        }]
-                    }
-                } 
-            }
-        },
-        "aggregations": {
-            filtered: {
-                filter: {
-                    bool: {
-                        must: [{
-                            fquery: {
-                                query: {
-                                    query_string: {
-                                        query: 'digestor:' + "535b97507899a672c49dd490"
-                                    }
-                                }
-                            }
-                        }]
-                    }
-                },
-                //"filter" : { "range" : { "status" : { "gte" : 400 } } },
-            },
-            "digestors": {
-                "terms": {
-                    "field": "digestor"
-                },
-                "aggregations": {
-                    filtered: {
-                        "filter" : { 
-                            "bool": {
-                                "must": [{
-                                    "range" : { 
-                                        //"status" : { "gt" : 400 } 
-                                        date: {
-                                            from: new Date().setHours(new Date().getHours() - 4),
-                                            to: new Date().setHours(new Date().getHours() - 2)
-                                        }
-                                    }
-                                }]
-                            }
-                        },
-                    },
-                    "transfer_stats": {
-                        "date_histogram": {
-                            "field": "date",
-                            "interval": "1h",
-                            "min_doc_count": 0,
-                            "extended_bounds": {
-                                "min": since,
-                                "max": until
-                            }
-                        },
-                        "aggregations": {
-                            "transfer_stats": {
-                                "stats": {
-                                    field: "time"
-                                }
-                            }
-                        }
-                    },
-                    "transfer_percentiles": {
-                        "percentiles": {
-                            field: "time"
-                        }
-                    },
-                    "sum_stats": {
-                        "stats": {
-                            field: "time"
-                        }
-                    }
-                }
-            },
-            "digestors_prev": {
-                "terms": {
-                    "field": "digestor",
-                },
-                "aggregations": {
-                    filtered: {
-                        "filter" : { 
-                            "bool": {
-                                "must": [{
-                                    "range" : { 
-                                        //"status" : { "gt" : 400 } 
-                                        date: {
-                                            from: new Date().setHours(new Date().getHours() - 48),
-                                            to: new Date().setHours(new Date().getHours() - 24)
-                                        }
-                                    }
-                                }]
-                            }
-                        },
-                    },
-                    "transfer_stats": {
-                        "date_histogram": {
-                            "field": "date",
-                            "interval": "1h",
-                            "min_doc_count": 0,
-                            "extended_bounds": {
-                                "min": new Date().setHours(new Date().getHours() - 48),
-                                "max": new Date().setHours(new Date().getHours() - 24)
-                            }
-                        },
-                        "aggregations": {
-                            "transfer_stats": {
-                                "stats": {
-                                    field: "time"
-                                }
-                            }
-                        }
-                    },
-                    "transfer_percentiles": {
-                        "percentiles": {
-                            field: "time"
-                        }
-                    },
-                    "sum_stats": {
-                        "stats": {
-                            field: "time"
-                        }
-                    }
-                }
-            }
-        }
-    };
-    */
 /*
 AGGREGATE MISSING BUCKETS
 var search = {

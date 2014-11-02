@@ -269,8 +269,10 @@ app.post('/user/signin', AccountCtl.signIn);
 app.get('/user/signout', ensureAuthenticated, AccountCtl.signOut);
 
 app.route('/user')
-    .post(AccountCtl.create)
-    .get(ensureAuthenticated, AccountCtl.read)
+    .post(AccountCtl.create)    
+    .get(ensureAuthenticated, AccountCtl.read);
+app.route('/user/:id')
+    .get(ensureAuthenticated, AccountCtl.readOne)
     .put(ensureAuthenticated, AccountCtl.update)
     .delete(ensureAuthenticated, AccountCtl.delete);
 
@@ -302,6 +304,7 @@ app.get('/user/reset/:id/:email', function(req, res) {
 ///////////////////////////////////////////////////////////////////////////////
 // Analytics                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
+/*
 app.get('/metrics', ensureAuthenticated, Analytics.metrics);
 app.get('/geo', ensureAuthenticated, Analytics.geo);
 app.get('/languages', ensureAuthenticated, Analytics.languages);
@@ -312,12 +315,18 @@ app.get('/performance', ensureAuthenticated, Analytics.performance);
 app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
 app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
 app.get('/getBytesTransferred/:id', ensureAuthenticated, Analytics.getBytesTransferred);
+*/
 
+
+app.get('/summary', ensureAuthenticated, Analytics.summary);
 app.get('/analitics/:entity/:id', Analytics.statuses);
 app.get('/terms/:entity/:id', Analytics.statusTerms);
+app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
 app.get('/timestatistics/:entity/:id', Analytics.timeStatistics);
 app.get('/transferstatistics/:entity/:id', Analytics.transferStatistics);
-app.get('/countrystatistics/:entity/:id', Analytics.countryStatistics);
+
+app.get('/geo', ensureAuthenticated, Analytics.geoStatistics);
+app.get('/geo/:entity/:id', ensureAuthenticated, Analytics.countryStatistics);
 
 
 // metric/digestor/12345/time

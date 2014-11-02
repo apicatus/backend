@@ -156,7 +156,7 @@ exports.blueprint = function (request, response, next) {
     return;
     // Fail if digestor name is already created (
     // TODO: check if domain extist and assign a new one
-    Digestor.findOne({name: request.body.name}, function(error, digestor) {
+    Digestor.findOne({subdomain: request.body.subdomain}, function(error, digestor) {
         if (error || digestor) {
             response.status(409);
             var message = JSON.stringify({error: "existingDigestor", message: 'Digestor already exists'});

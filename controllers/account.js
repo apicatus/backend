@@ -38,6 +38,7 @@
 var conf = require('../config'),
     mongoose = require('mongoose'),
     passport = require('passport'),
+    extend = require('util')._extend,
     Mailer = require('../controllers/mailer')/*,
     GitHubStrategy = require('passport-github').Strategy,
     GitHubApi = require("github")*/;
@@ -199,12 +200,30 @@ exports.read = function(request, response, next) {
             company: request.user.company,
             birthDate: request.user.birthDate,
             createdAt: request.user.createdAt,
-            updatedAt: request.user.updatedAt,
-            digestors: request.user.digestors
+            updatedAt: request.user.updatedAt
         });
     } else {
         response.statusCode = 500;
         response.json({error: 'Error decoding api token.'});
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Route to get currently one user account by id                             //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON authenticated account                               //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /account/getAccount                                              //
+///////////////////////////////////////////////////////////////////////////////
+exports.readOne = function(request, response, next) {
+    'use strict';
+
+    if (request.user.email) {
     }
 };
 
@@ -266,12 +285,21 @@ exports.create = function(request, response, next) {
 exports.update = function(request, response, next) {
     'use strict';
 
-    if (request.user.email) {
-        Account.findOneAndUpdate({email: request.user.email}, request.body)
+    if (request.user._id == request.params.id) {
+        Account.findOneAndUpdate({email: request.user.email}, {
+            name: request.body.name || '',
+            lastName: request.body.lastName || '',
+            country: request.body.country || '',
+            city: request.body.city || '',
+            timeZone: request.body.timeZone || '',
+            avatar: request.body.avatar || '',
+            company: request.body.company || '',
+            updatedAt: new Date(),
+        })
         .exec(function(error, user) {
             if (error) {
                 response.statusCode = 500;
-                return next();
+                return next(error);
             }
             if(!user) {
                 response.statusCode = 404;
@@ -283,8 +311,8 @@ exports.update = function(request, response, next) {
             }
         });
     } else {
-        response.statusCode = 500;
-        response.json({error: 'Error decoding api token.'});
+        response.statusCode = 403;
+        response.json({error: 'Forbidden'});
     }
 };
 

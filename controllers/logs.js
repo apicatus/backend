@@ -90,9 +90,7 @@ exports.read = function (request, response, next) {
         size: query.limit || 10,
         from: query.from || 0,
         body: {
-            // Begin query.
-            //fields: ["time", "date"],
-            _source: [ 'date', 'ip', 'uri', 'status', 'time' ],
+            //_source: [ 'date', 'ip', 'uri', 'status', 'time' ],
             query: {
                 filtered: {
                     query: {
@@ -157,23 +155,6 @@ exports.read = function (request, response, next) {
         response.statusCode = 500;
         return next(error);
     });
-    /*
-    Logs
-    .find(query)
-    .limit(defaults.limit)
-    .skip(defaults.skip)
-    .exec(function(error, logs) {
-        if (error) {
-            response.statusCode = 500;
-            return next();
-        }
-        if(!logs) {
-            response.statusCode = 404;
-            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
-        }
-        return response.json(logs);
-    });
-    */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -241,6 +222,8 @@ var initIndex = function (client) {
 exports.create = function(request, response, next) {
     'use strict';
 
+    var testIps = ["103.7.104.10", "80.78.64.10", "154.66.96.12", "185.4.52.21", "196.1.15.21", "204.14.248.21", "204.16.112.21", "179.0.131.21", "201.229.64.12", "27.113.240.10", "202.36.91.12", "103.243.18.12", "194.50.35.12", "209.195.192.12", "196.223.26.12", "185.11.8.11", "146.226.0.11", "162.210.68.11", "103.245.248.3", "161.196.0.11", "103.25.228.1", "185.4.160.12", "190.108.0.12", "100.42.128.12", "217.169.32.12", "77.104.64.11", "202.152.32.4", "221.199.224.11"];
+    var testIp = testIps[Math.floor(Math.random() * testIps.length)];
     var ip = request.headers['x-forwarded-for'] ||
         request.connection.remoteAddress ||
         request.socket.remoteAddress ||
@@ -252,11 +235,11 @@ exports.create = function(request, response, next) {
         requestHeaders: request.headers,
         requestBody: request.body,
         responseHeaders: {},
-        responseBody: {},
         date: new Date(),
         status: 0,
         time: 0,
-        geo: geoip.lookup('190.18.149.180')
+        data: '',
+        geo: geoip.lookup(testIp)
     };
 
     function logRequest() {
@@ -264,6 +247,14 @@ exports.create = function(request, response, next) {
         log.time = new Date().getTime() - log.date.getTime();
         log.responseHeaders = response._headers;
         log.status = response.statusCode;
+        if(response.getHeader('Transfer-Encoding')) {
+            //Buffer.byteLength(response, 'chunked');
+            console.log('------->>CHUNKED<<------');
+            console.log("ENC: ", response.getHeader('Transfer-Encoding'));
+            //console.log("RESP: ", response);
+            console.log("SIZE: ", Buffer.byteLength(log.data.toString(), 'chunked'));
+            console.log('------->>CHUNKED<<------');
+        }
         // Save to elasticsearch
         client.create({
             index: 'logs',
