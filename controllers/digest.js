@@ -148,7 +148,7 @@ exports.digestRequest = function(request, response, next) {
         ///////////////////////////////////////////////////////////////////////
         // Setup request options                                             //
         ///////////////////////////////////////////////////////////////////////
-        //request.headers['Content-length'] = '';
+        //request.headers['Content-length'] = ''; (skip chunked requests)
 
         var options = {
             hostname: proxyUrlParts.hostname,
@@ -183,7 +183,7 @@ exports.digestRequest = function(request, response, next) {
             // Default encodnig
             pipedResponse.setEncoding('utf8');
             pipedResponse.on('data', function (chunk) {
-                log.data = chunk;
+                log.data.out = chunk;
             });
             pipedResponse.on('end', function() {                
                 console.log("response ended");

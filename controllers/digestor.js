@@ -59,12 +59,6 @@ var account_schema = require('../models/account'),
 //                                                                           //
 // @url GET /digestor                                                        //
 ///////////////////////////////////////////////////////////////////////////////
-
-/*
-    TODO:
-        * Make simple API call handle both [/digestors and /digestors/:id]
-        * Dont allow private API search
-*/
 exports.read = function (request, response, next) {
     'use strict';
 
@@ -73,41 +67,25 @@ exports.read = function (request, response, next) {
         skip : 0,
         limit : 0
     };
-    var query = url.parse(request.url, true).query;
-    // Remove defauls from query object
-    for(var key in defaults) {
-        if(defaults.hasOwnProperty(key)) {
-            defaults[key] = parseInt(query[key], 10);
-            delete query[key];
-        }
-    }
-    Account.findUserByToken(token, gotUser);
-    function gotUser(error, user) {
+
+    Digestor.find({$or: [{public: true}, {owners: {$in: [request.user._id]}}, {_id: { $in: request.user.digestors }}]})
+    .limit(defaults.limit)
+    .skip(defaults.skip)
+    .exec(function(error, digestors) {
         if (error) {
             response.statusCode = 500;
             return next(error);
         }
-        query.owners = user._id;
-        Digestor
-        .find({$or: [query, {public: true}]}) //
-        .limit(defaults.limit)
-        .skip(defaults.skip)
-        .exec(function(error, digestors) {
-            if (error) {
-                response.statusCode = 500;
-                return next(error);
-            }
-            if(!digestors) {
-                response.statusCode = 404;
-                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
-            }
-            return response.json(digestors);
-        });
-    }
+        if(!digestors) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(digestors);
+    });
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// Route to a specific Digestor                                              //
+// Route to a get Digestor                                                   //
 //                                                                           //
 // @param {Object} request                                                   //
 // @param {Object} response                                                  //
@@ -121,28 +99,79 @@ exports.read = function (request, response, next) {
 exports.readOne = function (request, response, next) {
     'use strict';
 
-    var token = request.headers.token;
-
-    function gotUser(error, user) {
-        if (error || !user) {
+    Digestor.findOne({$and: [{_id: request.params.id}, {owners: {$in: [request.user._id]}}]})
+    .exec(function(error, digestors) {
+        if (error) {
             response.statusCode = 500;
-            return next();
+            return next(error);
         }
-        Digestor
-        .findOne({$and: [{_id: request.params.id}, {owners: user._id}]}) //
-        .exec(function(error, digestor) {
-            if (error) {
-                response.statusCode = 500;
-                return next();
+        if(!digestors) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(digestors);
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Route to a get Digestor                                                   //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Digestor                                            //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /digestor/:id                                                    //
+///////////////////////////////////////////////////////////////////////////////
+exports.findEntityById = function(request, response, next) {
+
+    function find(object, property, value) {
+        var result = [];
+        function customFilter(object, property, value, result) {
+            if(object.hasOwnProperty(property) && object[property] == value)
+                result.push(object);
+
+            for(var i = 0;i < Object.keys(object).length; i++){
+                if(Object.prototype.toString.call(object[Object.keys(object)[i]]) == "[object Object]") {
+                    customFilter(object[Object.keys(object)[i]], property, value, result);
+                } else if(Object.prototype.toString.call(object[Object.keys(object)[i]]) == "[object Array]") {
+                    object[Object.keys(object)[i]].forEach(function(item){
+                        if(Object.prototype.toString.call(item) == "[object Object]") {
+                            customFilter(item, property, value, result);
+                        }
+                    })
+                }
             }
-            if(!digestor) {
-                response.statusCode = 404;
-                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
-            }
-            return response.json(digestor.toJSON());
-        });
+        }
+        customFilter(object, property, value, result);
+        return result;
     }
-    Account.findUserByToken(token, gotUser);
+    Digestor.findOne({
+        $and: [
+            {
+                owners: {$in: [request.user._id]}
+            }, {
+                $or: [
+                    {_id: request.params.id}, 
+                    {'endpoints._id': {$in: [request.params.id]}},
+                    {'endpoints.methods._id': {$in: [request.params.id]}}
+                ]
+            }
+        ]
+    })
+    .exec(function(error, digestors) {
+        if (error) {
+            response.statusCode = 500;
+            return next(error);
+        }
+        if(!digestors) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(digestors);
+    });
 };
 ///////////////////////////////////////////////////////////////////////////////
 // Route to add a Digestor                                                   //
@@ -174,35 +203,23 @@ exports.create = function (request, response, next) {
             lastUpdate: new Date(),
             lastAccess: new Date(),
             endpoints: request.body.endpoints || [],
-            owners: []
+            owners: [request.user._id]
         });
-        console.log(digestor);
         digestor.save(onSave);
         function onSave(error, digestor) {
             if (error || !digestor) {
                 console.log("onSave error", error);
                 return next(error);
             }
-            console.log("user: ", JSON.stringify(digestor.toObject(), null, 4))
-
-            Account.findOne({email: request.user.email}, function(error, user) {
-                if (error || !user) {
-                    console.log("findOne error", error);
+            request.user.digestors.push(digestor._id);
+            request.user.save(function(error, user){
+                if (error) {
+                    request.user.digestors.pop();
+                    console.log("save error", error);
                     return next(error);
-                } else if (request.user.token.token === user.token.token) {
-                    // Verify if token has expired
-                    user.digestors.push(digestor._id);
-                    user.save(function(error, user){
-                        if (error) {
-                            console.log("save error", error);
-                            return next(error);
-                        }
-                        digestor.owners.push(user._id);
-                        digestor.save();
-                        response.statusCode = 201;
-                        return response.json(digestor);
-                    });
                 }
+                response.statusCode = 201;
+                return response.json(digestor);
             });
         }
     });
@@ -223,29 +240,19 @@ exports.create = function (request, response, next) {
 exports.updateOne = function (request, response, next) {
     'use strict';
 
-    var token = request.headers.token;
     delete request.body._id;
-
-    //var validator = jsonValidator.validateMultiple();
-    function gotUser(error, user) {
-        if (error || !user) {
+    Digestor.findOneAndUpdate({$and: [{_id: request.params.id}, {owners: request.user._id}]}, request.body)
+    .exec(function (error, digestor) {
+        if (error) {
             response.statusCode = 500;
-            return next();
+            return next(error);
         }
-        Digestor.findOneAndUpdate({$and: [{_id: request.params.id}, {owners: user._id}]}, request.body)
-        .exec(function (error, digestor) {
-            if (error) {
-                response.statusCode = 500;
-                return next(error);
-            }
-            if (!digestor) {
-                response.statusCode = 404;
-                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
-            }
-            return response.json(digestor);
-        });
-    }
-    Account.findUserByToken(token, gotUser);
+        if (!digestor) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(digestor);
+    });
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -263,25 +270,26 @@ exports.updateOne = function (request, response, next) {
 exports.deleteOne = function (request, response, next) {
     'use strict';
 
-    var token = request.headers.token;
-
-    function gotUser(error, user) {
-        if (error || !user) {
+    Digestor.findOneAndRemove({$and: [{_id: request.params.id}, {owners: request.user._id}]})
+    .exec(function (error, digestor) {
+        if (error) {
             response.statusCode = 500;
-            return next();
+            return next(error);
         }
-        Digestor.findOneAndRemove({$and: [{_id: request.params.id}, {owners: user._id}]})
-        .exec(function (error, digestor) {
+        var index = request.user.digestors.indexOf(request.params.id);
+        console.log("REQ: ", request.user.digestors, " IDX: ", index)
+        request.user.digestors.splice(index, 1);
+        console.log("REQ: ", request.user.digestors, " IDX: ", index)
+        request.user.save(function(error, user){
             if (error) {
-                response.statusCode = 500;
+                console.log("save error", error);
                 return next(error);
-            } else {
-                response.statusCode = 204;
-                return response.json({action: 'deleteOne', result: true});
             }
+            request.user.digestors = user.digestors;
+            response.statusCode = 204;
+            return response.json({action: 'deleteOne', result: true});
         });
-    }
-    Account.findUserByToken(token, gotUser);
+    });
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -299,22 +307,21 @@ exports.deleteOne = function (request, response, next) {
 exports.deleteAll = function (request, response, next) {
     'use strict';
 
-    var token = request.headers.token;
-
-    function gotUser(error, user) {
-        if (error || !user) {
+    Digestor.find({owners: request.user._id}).remove(function(error) {
+        if (error) {
             response.statusCode = 500;
             return next();
         }
-        Digestor.find({owners: user._id}).remove(function(error) {
+        user.digestors = [];
+        user.save(function(error, user){
             if (error) {
-                response.statusCode = 500;
-                return next();
+                console.log("save error", error);
+                return next(error);
             }
+            request.user.digestors = user.digestors;
             response.statusCode = 204;
-            return response.json({action: 'deleteAll', result: true});
+            return response.json({action: 'deleteOne', result: true});
         });
-    }
-    Account.findUserByToken(token, gotUser);
+    });
 };
 

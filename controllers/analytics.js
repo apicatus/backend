@@ -48,7 +48,6 @@ var config = require('../config'),
     elasticsearch = require('elasticsearch');
     moment = require('moment'),
     url = require('url'),
-    UAParser = require('ua-parser-js'),
     acceptLanguage = require('../services/accParser'),
     Schema = mongoose.Schema,
     ObjectId = mongoose.Types.ObjectId;
@@ -211,6 +210,126 @@ exports.platform = function (request, response, next) {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+// Route to get Accept-Language statistics                                   //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.languageStatistics = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until, tzone;
+
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 60 minutes
+        since = new Date().setDate(new Date().getDate() - 7);
+        until = new Date().getTime();
+    }
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : { 
+                    "filter": { 
+                        "bool": {
+                            "must": [{
+                                "range" : { 
+                                    date: {
+                                        from: since,
+                                        to: until
+                                    }
+                                }
+                            }],
+                            "should": []
+                        }
+                    } 
+                }
+            },
+            "aggregations": {
+                "summary": {
+                    "terms": {
+                        "field": "requestHeaders.accept-language"
+                    }
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+            search.aggregations["digestors"] = {
+                "terms": {
+                    "field": "digestor"
+                },
+                "aggregations": {
+                    "dataset": {
+                        "terms": {
+                            "field": "requestHeaders.accept-language"
+                        }
+                    }
+                }
+            };
+        }
+
+        return search;
+    };
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(since, until),
+    }).then(function (metrics) {
+        if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.aggregations);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+///////////////////////////////////////////////////////////////////////////////
 // Geolocation statistics                                                    //
 //                                                                           //
 // @param {Object} request                                                   //
@@ -265,17 +384,8 @@ exports.geoStatistics = function (request, response, next) {
                     } 
                 }
             },
-            "facets": {
-                "map": {
-                    "terms": {
-                        "field": "geo.country",
-                        "size": 100,
-                        "exclude": []
-                    }
-                }
-            },
             "aggregations": {
-                "digestors": {
+                /*"digestors": {
                     "terms": {
                         "field": "digestor"
                     },
@@ -283,6 +393,19 @@ exports.geoStatistics = function (request, response, next) {
                         "dataset": {
                             "terms": {
                                 "field": "geo.country"
+                            }
+                        }
+                    }
+                },*/
+                "summary": {
+                    "terms": {
+                        "field": "geo.country",
+                        "size": 0
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
                             }
                         }
                     }
@@ -313,6 +436,26 @@ exports.geoStatistics = function (request, response, next) {
                     }
                 });
             });
+            search.aggregations["digestors"] = {
+                "terms": {
+                    "field": "digestor"
+                },
+                "aggregations": {
+                    "dataset": {
+                        "terms": {
+                            "field": "geo.country",
+                            "size": 0
+                        },
+                        "aggregations": {
+                            "stats": {
+                                "extended_stats": {
+                                    "field": "time"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
         }
 
         return search;
@@ -361,13 +504,11 @@ exports.geoStatistics = function (request, response, next) {
         type: 'log',
         body: search(since, until),
     }).then(function (metrics) {
-        return response.json(metrics);
-
-        if(!metrics.facets) {
+        if(!metrics.aggregations) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
-        return response.json(metrics.facets.map.terms);
+        return response.json(metrics);
     }, function (error, body, code) {
         console.trace("error: ", error.message);
         if (error) throw new Error(error);
@@ -376,6 +517,170 @@ exports.geoStatistics = function (request, response, next) {
     });
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Geolocation statistics                                                    //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.agentStatistics = function (request, response, next) {
+    'use strict';
+
+    var defaults = {
+        skip : 0,
+        limit : 0,
+        digestor: '',
+        method: ''
+    };
+    var query = url.parse(request.url, true).query;
+    var since, until, tzone;
+
+    // Very crude ISO-8601 date pattern matching
+    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+
+    if(query.since && query.until) {
+        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
+        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    } else {
+        // If empty then select the last 60 minutes
+        since = new Date().setDate(new Date().getDate() - 7);
+        until = new Date().getTime();
+    }
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : { 
+                    "filter": { 
+                        "bool": {
+                            "must": [{
+                                "range" : { 
+                                    date: {
+                                        from: since,
+                                        to: until
+                                    }
+                                }
+                            }],
+                            "should": []
+                        }
+                    } 
+                }
+            },
+            "aggregations": {
+                "agents": {
+                    "terms": {
+                        "field": "ua.ua.family"
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        },
+                        "transfers": {
+                            "extended_stats": {
+                                "field": "responseHeaders.content-length"
+                            }
+                        }
+                    }
+                },
+                "devices": {
+                    "terms": {
+                        "field": "ua.device.family"
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        }
+                    }
+                },
+                "oess": {
+                    "terms": {
+                        "field": "ua.os.family"
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+            search.aggregations["digestors"] = {
+                "terms": {
+                    "field": "digestor"
+                },
+                "aggregations": {
+                    "dataset": {
+                        "terms": {
+                            "field": "ua.ua.family"
+                        },
+                        "aggregations": {
+                            "stats": {
+                                "extended_stats": {
+                                    "field": "time"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        return search;
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(since, until),
+    }).then(function (metrics) {
+        if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.aggregations);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get all Digestors                                                //
 //                                                                           //

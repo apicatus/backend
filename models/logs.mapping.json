@@ -1,12 +1,21 @@
 {
     "log": {
         "properties": {
-            "data": {
-                "type": "string",
-                "index": "not_analyzed",
-                "store": "yes"
+            "data" : {
+                "properties" : {
+                    "out" : {
+                        "type": "string",
+                        "index": "not_analyzed",
+                        "store": "yes"
+                    },
+                    "in" : {
+                        "type": "string",
+                        "index": "not_analyzed",
+                        "store": "yes"
+                    }
+                }
             },
-            "date": {
+            "date" : {
                 "type": "date",
                 "format": "dateOptionalTime"
             },
@@ -61,7 +70,7 @@
                     },
                     "accept-language": {
                         "type": "string",
-                        "index": "analyzed",
+                        "index": "not_analyzed",
                         "store": "yes"
                     },
                     "connection": {
@@ -125,6 +134,89 @@
                     },
                     "status": {
                         "type": "string"
+                    }
+                }
+            },
+            "ua": {
+                "properties": {
+                    "device": {
+                        "properties": {
+                            "family": {
+                                "type": "string",
+                                "index": "not_analyzed"
+                            }
+                        }
+                    },
+                    "family": {
+                        "type": "string",
+                        "index": "not_analyzed"
+                    },
+                    "major": {
+                        "type": "long"
+                    },
+                    "minor": {
+                        "type": "long"
+                    },
+                    "os": {
+                        "properties": {
+                            "family": {
+                                "type": "string",
+                                "index": "not_analyzed"
+                            },
+                            "major": {
+                                "type": "long"
+                            },
+                            "minor": {
+                                "type": "long"
+                            },
+                            "patch": {
+                                "type": "long"
+                            },
+                            "patchMinor": {
+                                "type": "long"
+                            }
+                        }
+                    },
+                    "patch": {
+                        "type": "long"
+                    },
+                    "string": {
+                        "type": "string",
+                        "index": "not_analyzed"
+                    },
+                    "ua": {
+                        "properties": {
+                            "family": {
+                                "type": "string",
+                                "index": "not_analyzed"
+                            },
+                            "major": {
+                                "type": "long"
+                            },
+                            "minor": {
+                                "type": "long"
+                            },
+                            "patch": {
+                                "type": "long"
+                            }
+                        }
+                    },
+                    "userAgent": {
+                        "properties": {
+                            "family": {
+                                "type": "string",
+                                "index": "not_analyzed"
+                            },
+                            "major": {
+                                "type": "string"
+                            },
+                            "minor": {
+                                "type": "string"
+                            },
+                            "patch": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             },

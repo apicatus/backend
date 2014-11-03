@@ -161,7 +161,7 @@ Account.statics.verify = function(token, cb) {
                 cb(new Error(error), false);
             } else if (token === user.token.token) {
                 // Verify if token has expired
-                user = {
+                /*user = {
                     _id: user._id,
                     email: user.email,
                     token: user.token,
@@ -170,7 +170,7 @@ Account.statics.verify = function(token, cb) {
                     username: user.username,
                     avatar: user.avatar,
                     digestors: user.digestors
-                };
+                };*/
                 cb(false, (Token.methods.hasExpired(user.token.date_created.getTime())), user);
             }
         });
@@ -247,14 +247,13 @@ Account.statics.deleteUserToken = function(email, cb) {
             console.log("deleteUserToken error");
             cb(error, null);
         }
-        //Create a token and add to user and save
-        delete user.token;
+        // Remove Token
+        user.token = null;
         user.save(function(err, usr) {
             if (err || !usr) {
                 cb(err, null);
             } else {
-                //console.log("about to cb with usr.token.token: " + usr.token.token);
-                cb(false, usr); //token object, in turn, has a token property :)
+                cb(false, usr);
             }
         });
     });

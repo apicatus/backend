@@ -248,6 +248,8 @@ app.route('/digestors/:id')
     .get(ensureAuthenticated, DigestorCtl.readOne)
     .put(ensureAuthenticated, DigestorCtl.updateOne)
     .delete(ensureAuthenticated, DigestorCtl.deleteOne)
+app.route('/find/:id')
+    .get(ensureAuthenticated, DigestorCtl.findEntityById);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -326,7 +328,11 @@ app.get('/timestatistics/:entity/:id', Analytics.timeStatistics);
 app.get('/transferstatistics/:entity/:id', Analytics.transferStatistics);
 
 app.get('/geo', ensureAuthenticated, Analytics.geoStatistics);
-app.get('/geo/:entity/:id', ensureAuthenticated, Analytics.countryStatistics);
+app.get('/geo/:entity/:id', ensureAuthenticated, Analytics.geoStatistics);
+app.get('/lang', ensureAuthenticated, Analytics.languageStatistics);
+app.get('/lang/:entity/:id', ensureAuthenticated, Analytics.languageStatistics);
+app.get('/agent', ensureAuthenticated, Analytics.agentStatistics);
+app.get('/agent/:entity/:id', ensureAuthenticated, Analytics.agentStatistics);
 
 
 // metric/digestor/12345/time

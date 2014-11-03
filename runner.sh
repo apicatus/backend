@@ -10,10 +10,22 @@ echo "CREATE INDICE"
 #curl -XPOST 'localhost:9200/logs?pretty'
 echo "CREATE MAPPING"
 #curl -XPOST 'localhost:9200/logs/_mapping/log?pretty' -d @models/logs.mapping.json
+function call {
+    UAS="User-Agent: "$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)
+    ORG="Origin: http://miapi.com:8070"
+    ENC="Accept-Encoding: gzip,deflate"
+    LAN="Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4"
+    CON="Connection: keep-alive"
+    ACC="Accept: */*"
+    REF="Referer: http://miapi.com:8070/"
+    curl -s -o /dev/null -w "%{http_code}" $1 -H $ORG -H $ENC -H $LAN -H $UAS -H $ACC -H $REF -H $CON --compressed  ; echo 
+    exit
+}
 while [ true ]
 do
     SLEEP=$(echo $RANDOM % 10 + 1 | bc)
     MOVIE=$(head -$((${RANDOM} % `wc -l < movies.names` + 1)) movies.names | tail -1)
+    UAS=$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)
     CITY=$(head -$((${RANDOM} % `wc -l < top5000Population.csv` + 1)) top5000Population.csv | tail -1 | awk -F',' '{print $1}')
     VAL=$(echo $RANDOM % 10 + 1 | bc)
     if [ $VAL -gt 5 ]
@@ -21,11 +33,12 @@ do
         echo "more: TRY FAIL"
         curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/more' -X POST -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --data 'xx=11' --compressed  ; echo 
         echo "WEATHER"
-        curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/max?q='$CITY -X GET -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --compressed  ; echo 
+        #curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/max?q='$CITY -X GET -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --compressed  ; echo 
     else
         echo "more: TRY GOOD"
         curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/more' -X POST -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' -H 'Content-Length: 0' --compressed  ; echo 
     fi
+    echo "WEATHER"
     curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/max?q='$CITY -X GET -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --compressed  ; echo 
     echo "moviedb"
     curl -s -o /dev/null -w "%{http_code}" 'http://mymovies.miapi.com:8070/?i=&t='$MOVIE -X GET -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' -H 'If-Modified-Since: Thu, 30 Oct 2014 11:57:18 GMT' --compressed  ; echo 
