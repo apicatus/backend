@@ -25,7 +25,7 @@ while [ true ]
 do
     SLEEP=$(echo $RANDOM % 10 + 1 | bc)
     MOVIE=$(head -$((${RANDOM} % `wc -l < movies.names` + 1)) movies.names | tail -1)
-    UAS=$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)
+    UAS="User-Agent: "$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)
     CITY=$(head -$((${RANDOM} % `wc -l < top5000Population.csv` + 1)) top5000Population.csv | tail -1 | awk -F',' '{print $1}')
     VAL=$(echo $RANDOM % 10 + 1 | bc)
     if [ $VAL -gt 5 ]
@@ -49,6 +49,8 @@ do
     curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/status' -H 'x-forwarded-for: 190.18.149.180' -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --compressed ; echo 
     echo "foo"
     curl -s -o /dev/null -w "%{http_code}" 'http://myapi.miapi.com:8070/foo' -H 'x-forwarded-for: 190.18.149.180' -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --compressed ; echo 
+    echo "apigee"
+    curl -s -o /dev/null -w "%{http_code}" 'http://bmaggi-test.apigee.net/hello-world-nodejs' -X GET  --compressed ; echo 
     #curl 'http://myapi.miapi.com:8070/more' -H 'Origin: http://miapi.com:8070' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Referer: http://miapi.com:8070/' -H 'Connection: keep-alive' --data 'xx=123' --compressed
     sleep $SLEEP
 done

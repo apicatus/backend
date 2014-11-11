@@ -140,6 +140,9 @@ exports.digestRequest = function(request, response, next) {
         digest(digestor, pathname, request.method);
     });
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Proxy Request                                                         //
+    ///////////////////////////////////////////////////////////////////////////
     var proxyRequest = function(method, request, response, log) {
 
         request.pause();
@@ -169,7 +172,7 @@ exports.digestRequest = function(request, response, next) {
         } else {
             protocol = http;
         }
-        console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(options, null, 4));
+        //console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(options, null, 4));
 
         var pipedRequest = protocol.request(options, function(pipedResponse) {
             // Set status
@@ -213,6 +216,55 @@ exports.digestRequest = function(request, response, next) {
         request.pipe(pipedRequest);
         request.resume();
     };
+    ///////////////////////////////////////////////////////////////////////////
+    // Handle Request                                                        //
+    ///////////////////////////////////////////////////////////////////////////
+    var handleRequest = function(method, request, response, log) {
+        var validatorOutput = null;
+        ///////////////////////////////////////////////////////////////
+        // Set custom headers                                        //
+        ///////////////////////////////////////////////////////////////
+        if(method.response.headers && method.response.headers.length > 0) {
+            method.response.headers.forEach(function(header){
+                if(header.name && header.value) {
+                    response.set(header.name, header.value);
+                }
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////
+        // Validate input data                                       //
+        ///////////////////////////////////////////////////////////////
+        if(method.response.validator.enabled && Object.keys(request.body).length > 0 && method.response.contentType == 'application/json') {
+            validatorOutput = jsonValidator.validateMultiple(request.body, JSON.parse(method.response.validator.schema));
+            if(!validatorOutput.valid) {
+                response.statusCode = 400;
+                response.json(validatorOutput);
+                return next();
+            }
+        }
+        ///////////////////////////////////////////////////////////////
+        // Set content-type & status code default use if nessesary   //
+        ///////////////////////////////////////////////////////////////
+        response.set('content-type', method.response.contentType || 'application/json');
+        response.statusCode = method.response.statusCode || 200;
+
+        ///////////////////////////////////////////////////////////////
+        // Send data as raw buffer contet-type will take care        //
+        ///////////////////////////////////////////////////////////////
+        if(method.response.body) {
+            response.send(new Buffer(method.response.body));
+        } else {
+            // Handle no response response body
+            response.send(new Buffer(""));
+        }
+    };
+    ///////////////////////////////////////////////////////////////////////////
+    // Learn Request                                                         //
+    ///////////////////////////////////////////////////////////////////////////
+    var LearnRequest = function(method, request, response, log) {
+
+    };
     var getMethodByRoute = function(digestor, route, httpMethod) {
         var method = null;
         for(var i = 0; i < digestor.endpoints.length; i++) {
@@ -229,7 +281,7 @@ exports.digestRequest = function(request, response, next) {
         return method[0];
     };
     var digest = function(digestor, route, httpMethod) {
-        var validatorOutput = null;
+        
         var method = getMethodByRoute(digestor, route, httpMethod);
         if(method) {
             ///////////////////////////////////////////////////////////////
@@ -244,45 +296,12 @@ exports.digestRequest = function(request, response, next) {
             if(method.proxy && method.proxy.enabled && method.proxy.URI) {
                 proxyRequest(method, request, response, log);
             } else {
-
-                ///////////////////////////////////////////////////////////////
-                // Set custom headers                                        //
-                ///////////////////////////////////////////////////////////////
-                if(method.response.headers && method.response.headers.length > 0) {
-                    method.response.headers.forEach(function(header){
-                        if(header.name && header.value) {
-                            response.set(header.name, header.value);
-                        }
-                    });
-                }
-
-                ///////////////////////////////////////////////////////////////
-                // Validate input data                                       //
-                ///////////////////////////////////////////////////////////////
-                if(method.response.validator.enabled && Object.keys(request.body).length > 0 && method.response.contentType == 'application/json') {
-                    validatorOutput = jsonValidator.validateMultiple(request.body, JSON.parse(method.response.validator.schema));
-                    if(!validatorOutput.valid) {
-                        response.statusCode = 400;
-                        response.json(validatorOutput);
-                        return next();
-                    }
-                }
-                ///////////////////////////////////////////////////////////////
-                // Set content-type & status code default use if nessesary   //
-                ///////////////////////////////////////////////////////////////
-                response.set('content-type', method.response.contentType || 'application/json');
-                response.statusCode = method.response.statusCode || 200;
-
-                ///////////////////////////////////////////////////////////////
-                // Send data as raw buffer contet-type will take care        //
-                ///////////////////////////////////////////////////////////////
-                if(method.response.body) {
-                    response.send(new Buffer(method.response.body));
-                } else {
-                    // Handle no response response body
-                    response.send(new Buffer(""));
-                }
+                handleRequest(method, request, response, log);
             }
+        } else if (digestor.learn) {
+            console.log("Unknown method then add: ", route);
+            response.statusCode = 204;
+            response.send(new Buffer(""));
         } else {
             response.statusCode = 404;
             return next();

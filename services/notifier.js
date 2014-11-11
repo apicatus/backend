@@ -75,7 +75,7 @@ exports.setup = function(server) {
         console.log('handshakeData:', socket.handshake.query.token);
         if(token != '1234') {
             next(new Error('not authorized'));
-            //return socket.disconnect('unauthorized');
+            return socket.disconnect('unauthorized');
         }
         next();
     });

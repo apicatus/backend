@@ -60,9 +60,10 @@ var fs = require('fs'),
     elasticsearch = require('elasticsearch');
 
 ///////////////////////////////////////////////////////////////////////////////
-// Run app                                                                   //
+// Application Variables                                                     //
 ///////////////////////////////////////////////////////////////////////////////
 var app = express();
+var router = express.Router();
 var IO = null;
 var DB = null;
 
@@ -158,12 +159,6 @@ var allowCrossDomain = function(request, response, next) {
     }
 };
 
-// Rate limit middleware
-
-function checkRate(request, response, next) {
-    'use strict';
-
-}
 // reusable middleware to test authenticated sessions
 function ensureAuthenticated(request, response, next) {
     'use strict';
@@ -319,6 +314,15 @@ app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
 app.get('/getBytesTransferred/:id', ensureAuthenticated, Analytics.getBytesTransferred);
 */
 
+// route middleware to validate :entity
+app.param('entity', function(request, response, next, entity) {
+    if(['digestor', 'method'].indexOf(entity) > -1) {
+        next();
+    } else {
+        response.statusCode = 422;
+        return response.json({"title": "error", "message": "Unprocessable Entity", "status": "fail"});
+    } 
+});
 
 app.get('/summary', ensureAuthenticated, Analytics.summary);
 app.get('/analitics/:entity/:id', Analytics.statuses);
@@ -327,16 +331,19 @@ app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
 app.get('/timestatistics/:entity/:id', Analytics.timeStatistics);
 app.get('/transferstatistics/:entity/:id', Analytics.transferStatistics);
 
+app.get('/transfer/:entity/:id', ensureAuthenticated, Analytics.transfer2Statistics);
+app.get('/transfer', ensureAuthenticated, Analytics.transfer2Statistics);
+app.get('/geo2stats', ensureAuthenticated, Analytics.geo2stats);
+app.get('/geo2stats/:entity/:id', ensureAuthenticated, Analytics.geo2stats);
+app.get('/methodstatsbydate', ensureAuthenticated, Analytics.methodStatsByDate);
+app.get('/methodstatsbydate/:entity/:id', ensureAuthenticated, Analytics.methodStatsByDate);
+
 app.get('/geo', ensureAuthenticated, Analytics.geoStatistics);
 app.get('/geo/:entity/:id', ensureAuthenticated, Analytics.geoStatistics);
 app.get('/lang', ensureAuthenticated, Analytics.languageStatistics);
 app.get('/lang/:entity/:id', ensureAuthenticated, Analytics.languageStatistics);
 app.get('/agent', ensureAuthenticated, Analytics.agentStatistics);
 app.get('/agent/:entity/:id', ensureAuthenticated, Analytics.agentStatistics);
-
-
-// metric/digestor/12345/time
-// metric/digestor/12345/bytes
 
 
 

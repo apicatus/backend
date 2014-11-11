@@ -126,53 +126,33 @@ exports.readOne = function (request, response, next) {
 // @url GET /digestor/:id                                                    //
 ///////////////////////////////////////////////////////////////////////////////
 exports.findEntityById = function(request, response, next) {
-
-    function find(object, property, value) {
-        var result = [];
-        function customFilter(object, property, value, result) {
-            if(object.hasOwnProperty(property) && object[property] == value)
-                result.push(object);
-
-            for(var i = 0;i < Object.keys(object).length; i++){
-                if(Object.prototype.toString.call(object[Object.keys(object)[i]]) == "[object Object]") {
-                    customFilter(object[Object.keys(object)[i]], property, value, result);
-                } else if(Object.prototype.toString.call(object[Object.keys(object)[i]]) == "[object Array]") {
-                    object[Object.keys(object)[i]].forEach(function(item){
-                        if(Object.prototype.toString.call(item) == "[object Object]") {
-                            customFilter(item, property, value, result);
-                        }
-                    })
-                }
-            }
-        }
-        customFilter(object, property, value, result);
-        return result;
-    }
     Digestor.findOne({
         $and: [
             {
                 owners: {$in: [request.user._id]}
             }, {
                 $or: [
-                    {_id: request.params.id}, 
-                    {'endpoints._id': {$in: [request.params.id]}},
-                    {'endpoints.methods._id': {$in: [request.params.id]}}
+                    {'_id': request.params.id},                             // Digestors
+                    {'endpoints._id': {$in: [request.params.id]}},          // Endpoints
+                    {'endpoints.methods._id': {$in: [request.params.id]}}   // Methods
                 ]
             }
         ]
     })
-    .exec(function(error, digestors) {
+    .exec(function(error, entity) {
         if (error) {
             response.statusCode = 500;
             return next(error);
         }
-        if(!digestors) {
+        if(!entity) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
-        return response.json(digestors);
+        return response.json(entity);
     });
 };
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Route to add a Digestor                                                   //
 //                                                                           //

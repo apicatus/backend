@@ -36,142 +36,82 @@
 
 // TODO:
 /*
-    1) only allow owned/public apis to be analyzed
-    2) Cleanup queries
-    3) MapReduce to Aggregations
-    4) normalized queries maybe custom query language (sum, min, max, etc...)
+    1) Crashes
+    2) Search Logs
+    4) Crash Summary: by version, by platforms
+    5) Total app errors
+    6) Crashes by device and by Os
+    7) Transactions Per Second
 */
 
 // Controllers
 var config = require('../config'),
     mongoose = require('mongoose'),
     elasticsearch = require('elasticsearch');
-    moment = require('moment'),
     url = require('url'),
-    acceptLanguage = require('../services/accParser'),
-    Schema = mongoose.Schema,
-    ObjectId = mongoose.Types.ObjectId;
-    
-    
-
-// Load models
-var logs_schema = require('../models/logs'),
-    Logs = mongoose.model('Logs', logs_schema);
-var analytics_schema = require('../models/analytics'),
-    Analytics = mongoose.model('Logs', analytics_schema);
+    extend = require('util')._extend,
+    acceptLanguage = require('../services/accParser');
 
 var client = new elasticsearch.Client();
 
+var intervalToString = function(milliseconds) {
+    var temp = Math.floor(milliseconds / 1000);
+
+    var years = Math.floor(temp / 31536000);
+    if (years) {
+        return years + 'y';
+    }
+    var weeks = Math.floor((temp %= 31536000) / 604800);
+    if (weeks) {
+        return weeks + 'w';
+    }
+    var days = Math.floor((temp %= 31536000) / 86400);
+    if (days) {
+        return days + 'd';
+    }
+    var hours = Math.floor((temp %= 86400) / 3600);
+    if (hours) {
+        return hours + 'h';
+    }
+    var minutes = Math.floor((temp %= 3600) / 60);
+    if (minutes) {
+        return minutes + 'm';
+    }
+    var seconds = temp % 60;
+    if (seconds) {
+        return seconds + 's';
+    }
+    return '1h';
+};
 
 var parseQuery = function(request) {
     'use strict';
 
-    var query = url.parse(request.url, true).query;
-    var since, until;
     // Very crude ISO-8601 date pattern matching
     var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
+    var params = url.parse(request.url, true).query;
 
-    if(query.since && query.until) {
-        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
-        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
+    if(params.since && params.until) {
+        params.since = params.since.match(isoDate) ? params.since : parseInt(params.since, 10);
+        params.until = params.until.match(isoDate) ? params.until : parseInt(params.until, 10);
     } else {
-        // If empty then select the last 24hs
-        since = new Date(); until = new Date();
-        since.setDate(since.getDate() - 1);
+        // If empty then select the last 7days
+        params.since = new Date().setDate(new Date().getDate() - 7);
+        params.until = new Date().getTime();
     }
-    console.log("since: ", since, " until: ", until);
-    var params = {
-        api: query.api || null,
-        since: since,
-        until: until,
-        limit: 100,
-        skip: 10
+
+    var query = {
+        size: parseInt(params.size, 10) || 100,
+        skip: parseInt(params.skip, 10) || 100,
+        limit: parseInt(params.limit, 10) || 100,
+        since: params.since,
+        until: params.until,
+        interval: intervalToString(parseInt(params.interval, 10))
     };
-    //console.log('params: ', JSON.stringify(request.user, null, 4));
-    return params;
+    
+    return query;
 }
-exports.languages = function (request, response, next) {
-    'use strict';
 
-    var token = request.headers.token;
-    var query = url.parse(request.url, true).query;
-    var since, until;
-    // Very crude ISO-8601 date pattern matching
-    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
-
-    if(query.since && query.until) {
-        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
-        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
-    } else {
-        // If empty then select the last 24hs
-        until = new Date();
-        since = new Date().setDate(new Date().getDate() - 7);
-    }
-
-    since = new Date(2014, 3, 16);
-    until = new Date();
-    console.log("since: ", new Date(since), " until: ", new Date(until));
-
-    // and here are the grouping request:
-    var aggregate = [
-        {
-            $match: {
-                time: {
-                    $gt: 0
-                },
-                date: {
-                    $gte: new Date(since),
-                    $lt: new Date(until),
-                }
-            }
-        },
-        {
-            $project: {
-                _id: 0, // let's remove bson id's from request's result
-                language: '$requestHeaders.accept-language' // and let's turn the nested field into usual field (usual renaming)
-            }
-        },
-        {
-            $group: {
-                //_id: {c: '$country', n: '$name' },
-                _id: '$language', // grouping key - group by field district
-                total: { $sum: 1 }
-            }
-        },
-        {
-            $sort: {
-                total: -1
-            }
-        },
-        {
-            $limit: 10
-        }
-    ];
-
-    var ln = acceptLanguage.parse('en-US,en;q=0.8,es-419;q=0.6,es;q=0.4');
-
-    console.log(ln);
-    // a promise is returned so you may instead write
-    var promise = Logs.aggregate(aggregate)
-    //.sort({'total': 'desc'})
-    .exec(function (error, model, stats) {
-        if (error) {
-            response.statusCode = 500;
-            return next();
-        }
-        if(!model) {
-            response.statusCode = 404;
-            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
-        }
-        /*model = model.map(function(d, i){
-            return [{
-                _id: acceptLanguage.parse(d._id),
-                total: d.total
-            }];
-        });*/
-        response.json(model);
-    });
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get platform statistics                                          //
@@ -224,26 +164,7 @@ exports.platform = function (request, response, next) {
 exports.languageStatistics = function (request, response, next) {
     'use strict';
 
-    var defaults = {
-        skip : 0,
-        limit : 0,
-        digestor: '',
-        method: ''
-    };
-    var query = url.parse(request.url, true).query;
-    var since, until, tzone;
-
-    // Very crude ISO-8601 date pattern matching
-    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
-
-    if(query.since && query.until) {
-        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
-        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
-    } else {
-        // If empty then select the last 60 minutes
-        since = new Date().setDate(new Date().getDate() - 7);
-        until = new Date().getTime();
-    }
+    var query = parseQuery(request);
 
     var search = function(since, until) {
         var search = {
@@ -254,8 +175,8 @@ exports.languageStatistics = function (request, response, next) {
                             "must": [{
                                 "range" : { 
                                     date: {
-                                        from: since,
-                                        to: until
+                                        from: query.since,
+                                        to: query.until
                                     }
                                 }
                             }],
@@ -267,7 +188,8 @@ exports.languageStatistics = function (request, response, next) {
             "aggregations": {
                 "summary": {
                     "terms": {
-                        "field": "requestHeaders.accept-language"
+                        "field": "requestHeaders.accept-language",
+                        "size": query.size
                     }
                 }
             }
@@ -296,18 +218,6 @@ exports.languageStatistics = function (request, response, next) {
                     }
                 });
             });
-            search.aggregations["digestors"] = {
-                "terms": {
-                    "field": "digestor"
-                },
-                "aggregations": {
-                    "dataset": {
-                        "terms": {
-                            "field": "requestHeaders.accept-language"
-                        }
-                    }
-                }
-            };
         }
 
         return search;
@@ -315,7 +225,7 @@ exports.languageStatistics = function (request, response, next) {
     client.search({
         index: 'logs',
         type: 'log',
-        body: search(since, until),
+        body: search(query.since, query.until)
     }).then(function (metrics) {
         if(!metrics.aggregations) {
             response.statusCode = 404;
@@ -344,26 +254,7 @@ exports.languageStatistics = function (request, response, next) {
 exports.geoStatistics = function (request, response, next) {
     'use strict';
 
-    var defaults = {
-        skip : 0,
-        limit : 0,
-        digestor: '',
-        method: ''
-    };
-    var query = url.parse(request.url, true).query;
-    var since, until, tzone;
-
-    // Very crude ISO-8601 date pattern matching
-    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
-
-    if(query.since && query.until) {
-        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
-        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
-    } else {
-        // If empty then select the last 60 minutes
-        since = new Date().setDate(new Date().getDate() - 7);
-        until = new Date().getTime();
-    }
+    var query = parseQuery(request);
 
     var search = function(since, until) {
         var search = {
@@ -374,8 +265,8 @@ exports.geoStatistics = function (request, response, next) {
                             "must": [{
                                 "range" : { 
                                     date: {
-                                        from: since,
-                                        to: until
+                                        from: query.since,
+                                        to: query.until
                                     }
                                 }
                             }],
@@ -385,22 +276,10 @@ exports.geoStatistics = function (request, response, next) {
                 }
             },
             "aggregations": {
-                /*"digestors": {
-                    "terms": {
-                        "field": "digestor"
-                    },
-                    "aggregations": {
-                        "dataset": {
-                            "terms": {
-                                "field": "geo.country"
-                            }
-                        }
-                    }
-                },*/
                 "summary": {
                     "terms": {
                         "field": "geo.country",
-                        "size": 0
+                        "size": query.size
                     },
                     "aggregations": {
                         "stats": {
@@ -436,75 +315,318 @@ exports.geoStatistics = function (request, response, next) {
                     }
                 });
             });
-            search.aggregations["digestors"] = {
-                "terms": {
-                    "field": "digestor"
-                },
-                "aggregations": {
-                    "dataset": {
-                        "terms": {
-                            "field": "geo.country",
-                            "size": 0
-                        },
-                        "aggregations": {
-                            "stats": {
-                                "extended_stats": {
-                                    "field": "time"
-                                }
-                            }
-                        }
-                    }
-                }
-            };
         }
 
         return search;
     };
 
-    /*var search = {
-        "query": {
-            "filtered" : { 
-                "filter": { 
-                    "bool": {
-                        "must": [{
-                            "range" : { 
-                                date: {
-                                    from: since,
-                                    to: until
-                                }
-                            }
-                        },
-                        {
-                            "fquery": {
-                                "query": {
-                                    "query_string": {
-                                        "query": request.params.entity + ":" + request.params.id
-                                    }
-                                },
-                                "_cache": true
-                            }
-                        }]
-                    }
-                } 
-            }
-        },
-        "facets": {
-            "map": {
-                "terms": {
-                    "field": "geo.country",
-                    "size": 100,
-                    "exclude": []
-                }
-            }
-        }
-    };*/
 
     client.search({
         index: 'logs',
         type: 'log',
-        body: search(since, until),
+        body: search(query.since, query.until)
     }).then(function (metrics) {
         if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.aggregations);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Geolocation statistics                                                    //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.agentStatistics = function (request, response, next) {
+    'use strict';
+
+    var query = parseQuery(request);
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : { 
+                    "filter": { 
+                        "bool": {
+                            "must": [{
+                                "range" : { 
+                                    date: {
+                                        from: query.since,
+                                        to: query.until
+                                    }
+                                }
+                            }],
+                            "should": []
+                        }
+                    } 
+                }
+            },
+            "aggregations": {
+                "agents": {
+                    "terms": {
+                        "field": "ua.ua.family",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        },
+                        "transfers": {
+                            "extended_stats": {
+                                "field": "responseHeaders.content-length"
+                            }
+                        }
+                    }
+                },
+                "deviceFamilies": {
+                    "terms": {
+                        "field": "ua.device.family",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        }
+                    }
+                },
+                "deviceTypes": {
+                    "terms": {
+                        "field": "ua.device.type",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "geo": {
+                            "terms": {
+                                "field": "geo.country",
+                                "size": query.size
+                            }
+                        }
+                    }
+                },
+                "strings": {
+                    "terms": {
+                        "field": "ua.string",
+                        "size": query.size
+                    }
+                },
+                "oess": {
+                    "terms": {
+                        "field": "ua.os.family",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+        }
+
+        return search;
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(query.since, query.until),
+    }).then(function (metrics) {
+        if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics.aggregations);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Geolocation statistics                                                    //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.transfer2Statistics = function (request, response, next) {
+    'use strict';
+
+    var query = parseQuery(request);
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : { 
+                    "filter": { 
+                        "bool": {
+                            "must": [{
+                                "range" : { 
+                                    date: {
+                                        from: query.since,
+                                        to: query.until
+                                    }
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'time'
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'status'
+                                }
+                            }],
+                            "should": []
+                        }
+                    } 
+                }
+            },
+            "aggregations": {
+                "history": {
+                    "date_histogram": {
+                        "field": "date",
+                        "interval": query.interval,
+                        "min_doc_count": 0,
+                        "extended_bounds": {
+                            "min": query.since,
+                            "max": query.until
+                        }
+                    },
+                    "aggregations": {
+                        "transfer_percentiles": {
+                            "percentiles": {
+                                field: "responseHeaders.content-length"
+                            }
+                        },
+                        "transfer_statistics": {
+                            "extended_stats": {
+                                field: "responseHeaders.content-length"
+                            }
+                        },
+                        "time_statistics": {
+                            "extended_stats": {
+                                field: "time"
+                            }
+                        },
+                        "geo": {
+                            "terms": {
+                                "field": "geo.country",
+                                "size": query.size
+                            }
+                        },
+                        "statuses": {
+                            "terms": {
+                                "field": "status",
+                                "size": query.size
+                            }
+                        }
+                    }
+                },
+                "z_statistics": {
+                    "extended_stats": {
+                        "field": "responseHeaders.content-length"
+                    }
+                },
+                "t_statistics": {
+                    "extended_stats": {
+                        "field": "time"
+                    }
+                },
+                "statuses": {
+                    "terms": {
+                        "field": "status",
+                        "size": query.size
+                    }
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+        }
+
+        return search;
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(query.since, query.until),
+    }).then(function (metrics) {
+        if(!metrics) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
@@ -529,29 +651,10 @@ exports.geoStatistics = function (request, response, next) {
 //                                                                           //
 // @url GET /platform                                                        //
 ///////////////////////////////////////////////////////////////////////////////
-exports.agentStatistics = function (request, response, next) {
+exports.geo2stats = function (request, response, next) {
     'use strict';
 
-    var defaults = {
-        skip : 0,
-        limit : 0,
-        digestor: '',
-        method: ''
-    };
-    var query = url.parse(request.url, true).query;
-    var since, until, tzone;
-
-    // Very crude ISO-8601 date pattern matching
-    var isoDate = /^(\d{4})(?:-?W(\d+)(?:-?(\d+)D?)?|(?:-(\d+))?-(\d+))(?:[T ](\d+):(\d+)(?::(\d+)(?:\.(\d+))?)?)?(?:Z(-?\d*))?$/;
-
-    if(query.since && query.until) {
-        since = query.since.match(isoDate) ? query.since : parseInt(query.since, 10);
-        until = query.until.match(isoDate) ? query.until : parseInt(query.until, 10);
-    } else {
-        // If empty then select the last 60 minutes
-        since = new Date().setDate(new Date().getDate() - 7);
-        until = new Date().getTime();
-    }
+    var query = parseQuery(request);
 
     var search = function(since, until) {
         var search = {
@@ -562,9 +665,17 @@ exports.agentStatistics = function (request, response, next) {
                             "must": [{
                                 "range" : { 
                                     date: {
-                                        from: since,
-                                        to: until
+                                        from: query.since,
+                                        to: query.until
                                     }
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'time'
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'status'
                                 }
                             }],
                             "should": []
@@ -573,43 +684,25 @@ exports.agentStatistics = function (request, response, next) {
                 }
             },
             "aggregations": {
-                "agents": {
+                "summary": {
                     "terms": {
-                        "field": "ua.ua.family"
+                        "field": "geo.country",
+                        "size": query.size
                     },
                     "aggregations": {
-                        "stats": {
+                        "time": {
                             "extended_stats": {
                                 "field": "time"
                             }
                         },
-                        "transfers": {
+                        "data": {
                             "extended_stats": {
                                 "field": "responseHeaders.content-length"
                             }
-                        }
-                    }
-                },
-                "devices": {
-                    "terms": {
-                        "field": "ua.device.family"
-                    },
-                    "aggregations": {
-                        "stats": {
-                            "extended_stats": {
-                                "field": "time"
-                            }
-                        }
-                    }
-                },
-                "oess": {
-                    "terms": {
-                        "field": "ua.os.family"
-                    },
-                    "aggregations": {
-                        "stats": {
-                            "extended_stats": {
-                                "field": "time"
+                        },
+                        "status": {
+                            "terms": {
+                                "field": "status"
                             }
                         }
                     }
@@ -640,25 +733,6 @@ exports.agentStatistics = function (request, response, next) {
                     }
                 });
             });
-            search.aggregations["digestors"] = {
-                "terms": {
-                    "field": "digestor"
-                },
-                "aggregations": {
-                    "dataset": {
-                        "terms": {
-                            "field": "ua.ua.family"
-                        },
-                        "aggregations": {
-                            "stats": {
-                                "extended_stats": {
-                                    "field": "time"
-                                }
-                            }
-                        }
-                    }
-                }
-            };
         }
 
         return search;
@@ -667,13 +741,155 @@ exports.agentStatistics = function (request, response, next) {
     client.search({
         index: 'logs',
         type: 'log',
-        body: search(since, until),
+        body: search(query.since, query.until),
     }).then(function (metrics) {
-        if(!metrics.aggregations) {
+        if(!metrics) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
-        return response.json(metrics.aggregations);
+        return response.json(metrics);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Get Method stats by date                                                  //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.methodStatsByDate = function (request, response, next) {
+    'use strict';
+
+    var query = parseQuery(request);
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : { 
+                    "filter": { 
+                        "bool": {
+                            "must": [{
+                                "range" : { 
+                                    date: {
+                                        from: query.since,
+                                        to: query.until
+                                    }
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'time'
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'status'
+                                }
+                            }],
+                            "should": []
+                        }
+                    } 
+                }
+            },
+            "aggregations": {
+                "methods": {
+                    "terms": {
+                        "field": "method",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "time": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        },
+                        "data": {
+                            "extended_stats": {
+                                "field": "responseHeaders.content-length"
+                            }
+                        },
+                        "status": {
+                            "terms": {
+                                "field": "status",
+                                "size": query.size
+                            }
+                        },
+                        "geo": {
+                            "terms": {
+                                "field": "geo.country",
+                                "size": query.size
+                            }
+                        },
+                        "os": {
+                            "terms": {
+                                "field": "ua.os.family",
+                                "size": query.size
+                            }
+                        },
+                        "browser": {
+                            "terms": {
+                                "field": "ua.ua.family",
+                                "size": query.size
+                            }
+                        },
+                        "device": {
+                            "terms": {
+                                "field": "ua.device.type",
+                                "size": query.size
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+        }
+
+        return search;
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(query.since, query.until),
+    }).then(function (metrics) {
+        if(!metrics) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        return response.json(metrics);
     }, function (error, body, code) {
         console.trace("error: ", error.message);
         if (error) throw new Error(error);
@@ -1589,204 +1805,3 @@ exports.summary = function (request, response, next) {
     });
 };
 
-/*
-var search = {
-        "query": {
-            "filtered" : { 
-                "filter": { 
-                    "bool": {
-                        "must": [{
-                            "range" : { 
-                                date: {
-                                    from: since,
-                                    to: until
-                                }
-                            }
-                        }, {
-                            exists: {
-                                field: 'status'
-                            }
-                        }]
-                    }
-                } 
-            }
-        },
-        "aggregations": {
-            filtered: {
-                filter: {
-                    bool: {
-                        must: [{
-                            fquery: {
-                                query: {
-                                    query_string: {
-                                        query: 'digestor:' + "535b97507899a672c49dd490"
-                                    }
-                                }
-                            }
-                        }]
-                    }
-                },
-                //"filter" : { "range" : { "status" : { "gte" : 400 } } },
-            },
-            "digestors": {
-                "terms": {
-                    "field": "digestor"
-                },
-                "aggregations": {
-                    filtered: {
-                        "filter" : { 
-                            "bool": {
-                                "must": [{
-                                    "range" : { 
-                                        //"status" : { "gt" : 400 } 
-                                        date: {
-                                            from: new Date().setHours(new Date().getHours() - 4),
-                                            to: new Date().setHours(new Date().getHours() - 2)
-                                        }
-                                    }
-                                }]
-                            }
-                        },
-                    },
-                    "transfer_stats": {
-                        "date_histogram": {
-                            "field": "date",
-                            "interval": "1h",
-                            "min_doc_count": 0,
-                            "extended_bounds": {
-                                "min": since,
-                                "max": until
-                            }
-                        },
-                        "aggregations": {
-                            "transfer_stats": {
-                                "stats": {
-                                    field: "time"
-                                }
-                            }
-                        }
-                    },
-                    "transfer_percentiles": {
-                        "percentiles": {
-                            field: "time"
-                        }
-                    },
-                    "sum_stats": {
-                        "stats": {
-                            field: "time"
-                        }
-                    }
-                }
-            },
-            "digestors_prev": {
-                "terms": {
-                    "field": "digestor",
-                },
-                "aggregations": {
-                    filtered: {
-                        "filter" : { 
-                            "bool": {
-                                "must": [{
-                                    "range" : { 
-                                        //"status" : { "gt" : 400 } 
-                                        date: {
-                                            from: new Date().setHours(new Date().getHours() - 48),
-                                            to: new Date().setHours(new Date().getHours() - 24)
-                                        }
-                                    }
-                                }]
-                            }
-                        },
-                    },
-                    "transfer_stats": {
-                        "date_histogram": {
-                            "field": "date",
-                            "interval": "1h",
-                            "min_doc_count": 0,
-                            "extended_bounds": {
-                                "min": new Date().setHours(new Date().getHours() - 48),
-                                "max": new Date().setHours(new Date().getHours() - 24)
-                            }
-                        },
-                        "aggregations": {
-                            "transfer_stats": {
-                                "stats": {
-                                    field: "time"
-                                }
-                            }
-                        }
-                    },
-                    "transfer_percentiles": {
-                        "percentiles": {
-                            field: "time"
-                        }
-                    },
-                    "sum_stats": {
-                        "stats": {
-                            field: "time"
-                        }
-                    }
-                }
-            }
-        }
-    };
-    */
-/*
-AGGREGATE MISSING BUCKETS
-var search = {
-        "query": {
-            "filtered" : { 
-                "filter": { 
-                    "bool": {
-                        "must": [{
-                            "range" : { 
-                                date: {
-                                    from: since,
-                                    to: until
-                                }
-                            }
-                        },
-                        {
-                            "fquery": {
-                                "query": {
-                                    "query_string": {
-                                        "query": "status:500"
-                                    }
-                                },
-                                "_cache": true
-                            }
-                        },{
-                            fquery: {
-                                query: {
-                                    query_string: {
-                                        query: "method:" + request.params.id
-                                    }
-                                }
-                            }
-                        }]
-                    }
-                } 
-            }
-        },
-        "aggregations": {
-            "dates_with_holes": {
-                "date_histogram": {
-                    "field": "date",
-                    "interval": "1m",
-                    "min_doc_count": 0,
-                    "extended_bounds": {
-                        "min": since,
-                        "max": until
-                    }
-                },
-                "aggregations": {
-                    "time_stats": {
-                        "stats": {
-                            field: "status"
-                        }
-                    }
-                }
-            }
-        }
-    };
-*/    
