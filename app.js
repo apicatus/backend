@@ -252,12 +252,12 @@ app.route('/find/:id')
 ///////////////////////////////////////////////////////////////////////////////
 // Collections
 app.route('/logs')
-    .post(LogsCtl.create)
-    .get(LogsCtl.read);
+    .post(ensureAuthenticated, LogsCtl.create)
+    .get(ensureAuthenticated, LogsCtl.read)
+    .delete(ensureAuthenticated, LogsCtl.delete);
 // Entities
-app.route('/logs/:id')
-    .put(LogsCtl.update)
-    .delete(LogsCtl.delete);
+app.route('/logs/:entity/:id')
+    .delete(ensureAuthenticated, LogsCtl.delete);
 
 ///////////////////////////////////////////////////////////////////////////////
 // User CRUD Methods & Servi                                                 //

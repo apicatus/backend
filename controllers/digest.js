@@ -36,10 +36,12 @@
 
 var DigestorMdl = require('../models/digestor'),
     LogsCtl = require('../controllers/logs'),
+    routex = require('../services/routex'),
     url = require('url'),
     config = require('../config'),
     http = require('http'),
     https = require('https'),
+    zlib = require('zlib')
     jsonValidator = require('tv4');
 
 
@@ -76,6 +78,11 @@ function subdomainRegex(baseUrl) {
 exports.pathMatch = function(route, path) {
     'use strict';
 
+
+    var pattern = routex.newPattern(route);
+
+    return pattern.match(path);
+
     var PATH_REPLACER = "([^\/]+)";
     var PATH_NAME_MATCHER = /:([\w\d]+)/g;
     var param_names = [];
@@ -86,7 +93,7 @@ exports.pathMatch = function(route, path) {
         param_names.push(path_match[1]);
     }
     // replace with the path replacement
-    route = new RegExp(route.replace(PATH_NAME_MATCHER, PATH_REPLACER) + "$");
+    route = new RegExp(route.replace(PATH_NAME_MATCHER, PATH_REPLACER) + '$');
 
     return path.match(route);
 };
@@ -135,15 +142,70 @@ exports.digestRequest = function(request, response, next) {
         }
         if(!digestor) {
             response.statusCode = 404;
-            return response.json({ error: "digestor not found" });
+            return response.json({ error: 'digestor not found' });
         }
         digest(digestor, pathname, request.method);
     });
 
+    var proxyRequest = function(options, request, response, log) {
+
+        var post_data = JSON.stringify(request.body);
+        request.pause();
+        ///////////////////////////////////////////////////////////////////////
+        // Match request protocol                                            //
+        ///////////////////////////////////////////////////////////////////////
+        var protocol = http;
+
+        if(options.protocol.match('https')) {
+            protocol = https;
+            // Set port or default to 443 (SSL)
+            options.port = options.port || 443;
+        }
+
+        var pipedRequest = protocol.request(options, function(pipedResponse) {
+            // Set status
+            response.statusCode = pipedResponse.statusCode;
+            // Set headers
+            for(var header in pipedResponse.headers) {
+                if(pipedResponse.headers.hasOwnProperty(header)) {
+                    response.set(header, pipedResponse.headers[header]);
+                }
+            }
+            // Default encodnig
+            //pipedResponse.setEncoding(request.headers['accept-encoding'] || 'utf8');
+            pipedResponse.on('data', function (chunk) {
+                response.write(chunk);
+            });
+            pipedResponse.on('end', function() {                
+                response.end();
+            });
+            pipedResponse.on('close', function() {
+                console.log("response close");
+            });
+            pipedResponse.on('finish', function() {
+                console.log("response finish");
+            });
+        });
+        pipedRequest.on('timeout', function() {
+            response.statusCode = 408;
+            response.json({'title': 'error', 'message': 'timeout', 'status': 'fail'});
+        });
+        pipedRequest.on('error', function(error) {
+            response.statusCode = 500;
+            console.log('problem with request: ' + JSON.stringify(error.message, null, 4));
+            response.json({'title': 'error', 'message': error.message, code: error.code, 'status': 'fail'});
+        });
+        // Post or Put data
+        if(options.method.toLowerCase() == 'post' || options.method.toLowerCase() == 'put') {
+            pipedRequest.write(post_data);
+        }
+        pipedRequest.end();
+        request.resume();
+    };
     ///////////////////////////////////////////////////////////////////////////
     // Proxy Request                                                         //
     ///////////////////////////////////////////////////////////////////////////
-    var proxyRequest = function(method, request, response, log) {
+    var proxyMethod = function(method, request, response, log) {
 
         request.pause();
         var proxyUrlParts = url.parse(method.proxy.URI, true, true);
@@ -152,6 +214,9 @@ exports.digestRequest = function(request, response, next) {
         // Setup request options                                             //
         ///////////////////////////////////////////////////////////////////////
         //request.headers['Content-length'] = ''; (skip chunked requests)
+
+        // this will fix problems with forwarding https requests !
+        // request.headers.host = proxyUrlParts.hostname;
 
         var options = {
             hostname: proxyUrlParts.hostname,
@@ -165,7 +230,7 @@ exports.digestRequest = function(request, response, next) {
         // Match request protocol                                            //
         ///////////////////////////////////////////////////////////////////////
         var protocol = null;
-        if(proxyUrlParts.protocol.match("https")) {
+        if(proxyUrlParts.protocol.match('https')) {
             protocol = https;
             // Set port or default to 443 (SSL)
             options.port = proxyUrlParts.port || 443;
@@ -184,7 +249,7 @@ exports.digestRequest = function(request, response, next) {
                 }
             }
             // Default encodnig
-            pipedResponse.setEncoding('utf8');
+            //pipedResponse.setEncoding(request.headers['accept-encoding'] || 'utf8');
             pipedResponse.on('data', function (chunk) {
                 log.data.out = chunk;
             });
@@ -205,12 +270,12 @@ exports.digestRequest = function(request, response, next) {
         });
         pipedRequest.on('timeout', function() {
             response.statusCode = 408;
-            response.json({"title": "error", "message": "timeout", "status": "fail"});
+            response.json({'title': 'error', 'message': 'timeout', 'status': 'fail'});
         });
         pipedRequest.on('error', function(error) {
             response.statusCode = 500;
             console.log('problem with request: ' + error.message);
-            response.json({"title": "error", "message": "remote connection error", "status": "fail"});
+            response.json({'title': 'error', 'message': 'remote connection error', 'status': 'fail'});
         });
         // Pipe request
         request.pipe(pipedRequest);
@@ -256,29 +321,121 @@ exports.digestRequest = function(request, response, next) {
             response.send(new Buffer(method.response.body));
         } else {
             // Handle no response response body
-            response.send(new Buffer(""));
+            response.send(new Buffer(''));
         }
+    };
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Proxy Digestor                                                        //
+    ///////////////////////////////////////////////////////////////////////////
+    var proxyDigestor = function(digestor, request, response, log) {
+        var proxyUrlParts = url.parse(digestor.proxy.URI, true, true);
+
+        var options = {
+            protocol: proxyUrlParts.protocol,
+            hostname: proxyUrlParts.hostname,
+            port: proxyUrlParts.port | 80,
+            path: url_parts.pathname,
+            method: request.method,
+            headers: request.headers
+        };
+
+        /*http.get("http://qa-plattform.securityscorecard.io/js/main.js", function(file) {
+            console.log("RRRR: ", file.statusCode);
+                
+            file.on('data', function(data) {
+                //file.write(data);
+                response.write(new Buffer(data));
+            })
+            .on('end', function() {
+                //file.end();
+                response.end();
+            });
+        });*/
+        /*var rqq = http.request(options, function(file) {
+            file.on('data', function(data) {
+                response.write(new Buffer(data));
+            })
+            .on('end', function() {
+                response.end();
+            });
+        });
+        rqq.end();
+        */
+        //return response.json(options);
+        return proxyRequest(options, request, response, log);
     };
     ///////////////////////////////////////////////////////////////////////////
     // Learn Request                                                         //
     ///////////////////////////////////////////////////////////////////////////
-    var LearnRequest = function(method, request, response, log) {
+    var learnRequest = function(digestor, route, httpMethod, request, response, log) {
 
+        var endpoint = digestor.endpoints.filter(function(endpoint) {
+            return endpoint.name == 'Learned methods';
+        });
+
+        if(!endpoint.length) {
+            endpoint = digestor.endpoints = [{
+                name: 'Learned methods',
+                synopsis: 'Recorded calls from apicatus',
+                methods: []
+            }];
+        }
+
+        endpoint[0].methods.push({
+            name: route,
+            synopsis: 'Recorded method',
+            URI: route,
+            method: httpMethod
+        });
+
+        /*digestor.update({ 
+            $push: {'endpoints': method}
+        }, { 
+            upsert: true
+        }, function(err, digestor){
+            if(err){ 
+                res.json(err);
+                return next(); 
+            }
+            return response.json(digestor); 
+        });*/
+        digestor.save(function(error, digestor){
+            if (error) {
+                console.log('save error', error);
+                return next(error);
+            }
+            if(!digestor) {
+                response.statusCode = 404;
+                return response.json({'title': 'error', 'message': 'Cannot create', 'status': 'fail'});
+            }
+            ///////////////////////////////////////////////////////////////
+            // If proxy is enabled and valid then pipe request           //
+            ///////////////////////////////////////////////////////////////
+            if(digestor.proxy && digestor.proxy.enabled && digestor.proxy.URI) {
+                proxyDigestor(digestor, request, response, log);
+            } else {
+                // Maybe send empty null response but ok ?
+                response.statusCode = 200;
+                return response.json({action: 'endpoint recorded', endpoint: endpoint, result: true});
+            }
+        });
     };
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Return matching method by route & verb                                //
+    ///////////////////////////////////////////////////////////////////////////
     var getMethodByRoute = function(digestor, route, httpMethod) {
         var method = null;
         for(var i = 0; i < digestor.endpoints.length; i++) {
-            method = filterMethods(digestor.endpoints[i], route, httpMethod);
-            if(method.length > 0) {
-                break;
-            }
-        }
-        function filterMethods(method, route, httpMethod) {
-            return digestor.endpoints[i].methods.filter(function(method) {
+            method = digestor.endpoints[i].methods.filter(function(method) {
                 return (exports.pathMatch(method.URI, route) && httpMethod.toUpperCase() === method.method.toUpperCase());
             });
+            if(method.length) {
+                return method[0];
+            }
         }
-        return method[0];
+        return null;
     };
     var digest = function(digestor, route, httpMethod) {
         
@@ -293,15 +450,38 @@ exports.digestRequest = function(request, response, next) {
             ///////////////////////////////////////////////////////////////
             // If proxy is enabled and valid then pipe request           //
             ///////////////////////////////////////////////////////////////
-            if(method.proxy && method.proxy.enabled && method.proxy.URI) {
-                proxyRequest(method, request, response, log);
+            if(digestor.proxy && digestor.proxy.enabled && digestor.proxy.URI) {
+                proxyDigestor(digestor, request, response, log);
+            } else if(method.proxy && method.proxy.enabled && method.proxy.URI) {
+                proxyMethod(method, request, response, log);
             } else {
                 handleRequest(method, request, response, log);
             }
         } else if (digestor.learn) {
-            console.log("Unknown method then add: ", route);
-            response.statusCode = 204;
-            response.send(new Buffer(""));
+            ///////////////////////////////////////////////////////////////
+            // Learn methods from requests                               //
+            ///////////////////////////////////////////////////////////////
+            var endpoint = digestor.endpoints.filter(function(endpoint) {
+                return endpoint.name == 'Learned methods';
+            });
+
+            if(!endpoint.length) {
+                endpoint = digestor.endpoints = [{
+                    name: 'Learned methods',
+                    synopsis: 'Recorded calls from apicatus',
+                    methods: []
+                }];
+
+                digestor.save(function(error, digestor){
+                    if (error) {
+                        console.log('save error', error);
+                        return next(error);
+                    }
+                    learnRequest(digestor, route, httpMethod, request, response, log);
+                });
+            } else {
+                learnRequest(digestor, route, httpMethod, request, response, log);
+            }
         } else {
             response.statusCode = 404;
             return next();

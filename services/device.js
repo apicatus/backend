@@ -34,8 +34,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-var conf = require('../config'),
-    extend = require('util')._extend;
+var extend = require('util')._extend;
 
 var defaultOptions = {
     emptyUserAgentDeviceType: 'desktop',
@@ -54,6 +53,8 @@ var defaultOptions = {
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 function DeviceParser(request, options) {
+    'use strict';
+
     var self = this;
 
     self.options = extend(defaultOptions, options);
@@ -132,11 +133,13 @@ function DeviceParser(request, options) {
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 exports.parse = function(request, options) {
+    'use strict';
     var parser = new DeviceParser(request, options);
     return parser.get_type();
 };
 
 exports.capture = function (options) {
+    'use strict';
     return function (request, response, next) {
         var parser = new DeviceParser(request, options);
         request.device = request.device || {};

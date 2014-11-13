@@ -97,7 +97,12 @@ var Digestor = new Schema({
     public: { type: Boolean, default: true, required: false },
     endpoints: [ Endpoints ],
     hits: { type: Number, default: 0, required: false },
-    owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }]
+    owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }],
+    learn: { type: Boolean, default: false, required: false },
+    proxy: {
+        URI:  { type: String, required: false, trim: true },
+        enabled: { type: Boolean, required: false, default: false }
+    }
 });
 
 ///////////////////////////////////////////////////////////////////////////////

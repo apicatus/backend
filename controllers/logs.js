@@ -37,18 +37,16 @@
 // Controllers
 var mongoose = require('mongoose'),
     url = require('url'),
-    freegeoip = require('../services/freegeoip'),
     geoip = require('geoip-lite'),
     uap = require('ua-parser'),
     device = require('../services/device'),
-    config = require('../config'),
     elasticsearch = require('elasticsearch');
 
 // Load model
-var logs_schema = require('../models/logs'),
-    Logs = mongoose.model('Logs', logs_schema);
+var digestor_schema = require('../models/digestor'),
+    Digestor = mongoose.model('Digestor', digestor_schema);
 
-var logs_mapping = require('../models/logs.mapping.json')
+var logs_mapping = require('../models/logs.mapping.json');
 var client = new elasticsearch.Client();
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -86,7 +84,6 @@ exports.read = function (request, response, next) {
         since = new Date().setHours(new Date().getHours() - 6);
     }
 
-    console.log("query: ", query)
     client.search({
         index: 'logs',
         size: query.limit || 10,
@@ -157,56 +154,6 @@ exports.read = function (request, response, next) {
         response.statusCode = 500;
         return next(error);
     });
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// Route to a specific Digestor                                              //
-//                                                                           //
-// @param {Object} request                                                   //
-// @param {Object} response                                                  //
-// @param {Object} next                                                      //
-// @return {Object} JSON Digestor                                            //
-//                                                                           //
-// @api public                                                               //
-//                                                                           //
-// @url GET /logs/:id                                                        //
-///////////////////////////////////////////////////////////////////////////////
-exports.findBy = function (request, response, next) {
-    'use strict';
-
-    Logs.findOne({_id: request.params._id}, onFindOne);
-
-    function onFindOne(error, log) {
-        if (error) {
-            return next(error);
-        }
-        if(!log) {
-            response.statusCode = 404;
-            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
-        }
-        return response.json(log);
-    }
-};
-
-var initIndex = function (client) {
-
-    console.log("logs_mapping: ", logs_mapping);
-    /*
-    client.create({ 
-        index: 'logs', 
-        type: 'log' 
-    });
-
-    client.indices.putMapping({ 
-        index: 'logs', 
-        type: 'log', 
-        body: body 
-    }).then(function (response) {
-        var hits = resp.hits.hits;
-    }, function (error, body, code) {
-        if (error) throw new Error(error);
-    });
-    */
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,83 +239,6 @@ exports.create = function(request, response, next) {
 };
 
 
-exports.createOLD = function (request, response, next) {
-    'use strict';
-
-    var ip = request.headers['x-forwarded-for'] ||
-        request.connection.remoteAddress ||
-        request.socket.remoteAddress ||
-        request.connection.socket.remoteAddress;
-
-    var log = new Logs({
-        ip: ip,
-        uri: url.parse(request.url, true, true),
-        requestHeaders: request.headers,
-        requestBody: request.body,
-        responseHeaders: {},
-        responseBody: {},
-        status: 0,
-        date: new Date(),
-        time: 0
-    });
-    function onSave(error, log) {
-        var report = null;
-        if (error) {
-            return next(error);
-        }
-        if(!log) {
-            report = new Error('Error could not create log');
-            report.status = 404;
-            return next(report);
-        }/*
-        if(log) {
-            console.log("LOG OK: ", log.toJSON());
-            client.create({
-                index: 'logs',
-                type: 'log',
-                id: log._id.toString(),
-                body: log.toJSON()
-            }, function (error, response) {
-                console.log("response: ", response);
-            });
-        }*/
-        //return next(log);
-    }
-    function logRequest() {
-        log.time = new Date().getTime() - log.date.getTime();
-        log.responseHeaders = response._headers;
-        log.status = response.statusCode;
-        // Convert content-length to numbers
-        if(log.requestHeaders['content-length']) {
-            log.requestHeaders['content-length'] = parseInt(log.requestHeaders['content-length'], 10);
-        }
-        if(log.responseHeaders['content-length']) {
-            log.responseHeaders['content-length'] = parseInt(log.responseHeaders['content-length'], 10);
-        }
-        //log.responseBody = response.statusCode;
-        freegeoip.getLocation(ip, function(err, geo) {
-            log.geo = geo;
-            log.save(onSave);
-        });
-        // console.log("response finish: ", log.time, "ms, length", response.getHeader('Content-Length'));
-    }
-    response.on('finish', logRequest);
-    response.on('data', function (chunk) {
-        log.responseBody += chunk;
-        //console.log("chunk: ", chunk);
-    });
-    //response.end = function(data, encoding) {
-    //    console.log("response.end()", data);
-    //};
-    response.on('end', function() {
-        //console.log("on end: ", log.responseBody);
-    });
-    response.on('header', function() {
-        //console.log("header: ", this);
-    });
-    return log;
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 // Route to update a Log                                                     //
 //                                                                           //
@@ -384,23 +254,10 @@ exports.createOLD = function (request, response, next) {
 exports.update = function (request, response, next) {
     'use strict';
 
-    Logs.findOneAndUpdate({_id: request.params._id}, request.body, onUpdate);
-
-    function onUpdate (error, log) {
-        if (error) {
-            return next(error);
-        }
-        if (!log) {
-            response.statusCode = 500;
-            return response.json({"title": "error", "message": "could not update", "status": "fail"});
-        }
-        response.status(200);
-        return response.json(log);
-    }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// Route to remove a Digestor                                                //
+// Route to remove Logs                                                      //
 //                                                                           //
 // @param {Object} request                                                   //
 // @param {Object} response                                                  //
@@ -409,22 +266,102 @@ exports.update = function (request, response, next) {
 //                                                                           //
 // @api public                                                               //
 //                                                                           //
-// @url DELETE /logs/:id                                                     //
+// @url DELETE /logs                                                         //
 ///////////////////////////////////////////////////////////////////////////////
 exports.delete = function (request, response, next) {
     'use strict';
 
-    if(request.params._id) {
-        Logs.findOneAndRemove({_id: request.params._id}, onDelete);
-    } else {
-        // remove all
-        Logs.find().remove(onDelete);
-    }
-    function onDelete(error) {
-        if (error) {
-            return next(error);
+    var search = function() {
+        var search = {
+            "query": {
+                "filtered" : { 
+                    "filter": { 
+                        "bool": {
+                            "must": [],
+                            "should": []
+                        }
+                    } 
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
         }
-        response.statusCode = 204;
-        return response.json({action: 'delete', result: true});
+        return search;
+    };
+
+    ///////////////////////////////////////////////////////////////////////////
+    // It we have an entity and param id make sure we own then befor remove  //
+    ///////////////////////////////////////////////////////////////////////////
+    if(request.params.entity && request.params.id) {
+
+        Digestor.findOne({
+            $and: [
+                {
+                    owners: {$in: [request.user._id]}
+                }, {
+                    $or: [
+                        {'_id': request.params.id},                             // Digestors
+                        {'endpoints._id': {$in: [request.params.id]}},          // Endpoints
+                        {'endpoints.methods._id': {$in: [request.params.id]}}   // Methods
+                    ]
+                }
+            ]
+        })
+        .exec(function(error, entity) {
+            if (error) {
+                response.statusCode = 500;
+                return next(error);
+            }
+            if(!entity) {
+                response.statusCode = 404;
+                return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+            }
+            // Remove by query
+            deleteByQuery(search());
+        });
+
+    } else {
+        // Remove all our difestors logs
+        deleteByQuery(search());
+    }
+
+
+    function deleteByQuery(query) {
+        client.deleteByQuery({
+            index: 'logs',
+            type: 'log',
+            body: query,
+        }).then(function (metrics) {
+            response.statusCode = 204;
+            return response.json({action: 'deleteAll', result: true});
+        }, function (error, body, code) {
+            console.trace("error: ", error.message);
+            if (error) throw new Error(error);
+            response.statusCode = 500;
+            return next(error);
+        });
     }
 };
