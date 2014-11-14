@@ -109,6 +109,8 @@ var init = function() {
         // Start listening prod HTTP or HTTPS                                        //
         ///////////////////////////////////////////////////////////////////////////////
         if(conf.ssl) {
+            conf.ssl.key = fs.readFileSync(conf.ssl.key);
+            conf.ssl.cert = fs.readFileSync(conf.ssl.cert);
             server = https.createServer(conf.ssl, app).listen(conf.listenPort, conf.ip);
         } else {
             server = http.createServer(app).listen(conf.listenPort, conf.ip);

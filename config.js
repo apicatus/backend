@@ -1,8 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Primary configuration file                                                //
 ///////////////////////////////////////////////////////////////////////////////
-var os = require("os"),
-    fs = require('fs');
+var os = require("os");
 
 var environments = {
     ///////////////////////////////////////////////////////////////////////////
@@ -70,10 +69,10 @@ var environments = {
             user: "",
             password: ""
         },
-        ssl: {
-            key: fs.readFileSync('ssl-key.pem'),
-            cert: fs.readFileSync('ssl-cert.pem')
-        },
+        /*ssl: {
+            key: "ssl-key.pem",
+            cert: "ssl-cert.pem"
+        },*/
         elasticsearch: {
             hosts: ['http://localhost:9200'],
             log: 'trace'
@@ -115,10 +114,10 @@ var environments = {
             user: "",
             password: ""
         },
-        ssl: {
-            key: fs.readFileSync('ssl-key.pem'),
-            cert: fs.readFileSync('ssl-cert.pem')
-        },
+        /*ssl: {
+            key: "ssl-key.pem",
+            cert: "ssl-cert.pem"
+        },*/
         elasticsearch: {
             hosts: ['http://localhost:9200'],
             log: 'trace'
