@@ -35,7 +35,7 @@ var environments = {
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8070,
         ip: process.env.IP || '127.0.0.1',
-        baseUrl: 'miapi.com',
+        baseUrl: 'apicat.us',
         allowCrossDomain: false,
         autoStart: true,
         ttl: (1000 * 60 * 100), // 10 minutes

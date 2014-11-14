@@ -147,12 +147,12 @@ var allowCrossDomain = function(request, response, next) {
     'use strict';
 
     response.header('Access-Control-Allow-Origin', '*');
-    response.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, X-Level3-Digest-Time, Content-Type, Authorization, Accept');
+    response.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Authorization, Accept, token');
     response.header('Access-Control-Allow-Methods', 'OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, CONNECT');
 
     // intercept OPTIONS method
     if ('OPTIONS' === request.method) {
-        response.send(200);
+        response.status(200).end();
     }
     else {
         next();
@@ -266,7 +266,7 @@ app.post('/user/signin', AccountCtl.signIn);
 app.get('/user/signout', ensureAuthenticated, AccountCtl.signOut);
 
 app.route('/user')
-    .post(AccountCtl.create)    
+    .post(AccountCtl.create)
     .get(ensureAuthenticated, AccountCtl.read);
 app.route('/user/:id')
     .get(ensureAuthenticated, AccountCtl.readOne)
@@ -321,7 +321,7 @@ app.param('entity', function(request, response, next, entity) {
     } else {
         response.statusCode = 422;
         return response.json({"title": "error", "message": "Unprocessable Entity", "status": "fail"});
-    } 
+    }
 });
 
 app.get('/summary', ensureAuthenticated, Analytics.summary);
@@ -348,6 +348,11 @@ app.get('/agent/:entity/:id', ensureAuthenticated, Analytics.agentStatistics);
 
 
 app.get('/throttle', Throttle.throttle, function(req, res) {
+    res.json({message: "hello throttle"});
+});
+
+
+app.get('/echo', function(req, res) {
     res.json({message: "hello throttle"});
 });
 ///////////////////////////////////////////////////////////////////////////////

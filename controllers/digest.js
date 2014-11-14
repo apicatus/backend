@@ -123,11 +123,17 @@ exports.digestRequest = function(request, response, next) {
     var subdomainString = regex.exec(request.headers.host);
     // if there is no subdomain, return
     if(!subdomainString) {
+        console.log("skip local: ", JSON.stringify(subdomainString, null, 4));
         return next();
     }
     // create an array of subdomains
     var subdomainArray = subdomainString[1].split('.');
-    // console.log("subdomainArray", subdomainArray);
+    // Skip API Calls
+    if(subdomainArray[0].toLowerCase() == 'api') {
+        return next();
+    }
+
+    console.log("subdomainArray", subdomainArray[0].toLowerCase());
 
     var url_parts = url.parse(request.url, true, true);
     var pathname = url_parts.pathname;
@@ -176,7 +182,7 @@ exports.digestRequest = function(request, response, next) {
             pipedResponse.on('data', function (chunk) {
                 response.write(chunk);
             });
-            pipedResponse.on('end', function() {                
+            pipedResponse.on('end', function() {
                 response.end();
             });
             pipedResponse.on('close', function() {
@@ -253,7 +259,7 @@ exports.digestRequest = function(request, response, next) {
             pipedResponse.on('data', function (chunk) {
                 log.data.out = chunk;
             });
-            pipedResponse.on('end', function() {                
+            pipedResponse.on('end', function() {
                 console.log("response ended");
                 //response.writeHeader(pipedResponse.statusCode, pipedResponse.headers);
                 //response.end();
@@ -342,7 +348,7 @@ exports.digestRequest = function(request, response, next) {
 
         /*http.get("http://qa-plattform.securityscorecard.io/js/main.js", function(file) {
             console.log("RRRR: ", file.statusCode);
-                
+
             file.on('data', function(data) {
                 //file.write(data);
                 response.write(new Buffer(data));
@@ -389,16 +395,16 @@ exports.digestRequest = function(request, response, next) {
             method: httpMethod
         });
 
-        /*digestor.update({ 
+        /*digestor.update({
             $push: {'endpoints': method}
-        }, { 
+        }, {
             upsert: true
         }, function(err, digestor){
-            if(err){ 
+            if(err){
                 res.json(err);
-                return next(); 
+                return next();
             }
-            return response.json(digestor); 
+            return response.json(digestor);
         });*/
         digestor.save(function(error, digestor){
             if (error) {
@@ -438,7 +444,7 @@ exports.digestRequest = function(request, response, next) {
         return null;
     };
     var digest = function(digestor, route, httpMethod) {
-        
+
         var method = getMethodByRoute(digestor, route, httpMethod);
         if(method) {
             ///////////////////////////////////////////////////////////////
