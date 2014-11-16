@@ -327,10 +327,6 @@ app.param('entity', function(request, response, next, entity) {
 });
 
 app.get('/summary', ensureAuthenticated, Analytics.summary);
-app.get('/analitics/:entity/:id', Analytics.statuses);
-app.get('/terms/:entity/:id', Analytics.statusTerms);
-app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
-app.get('/timestatistics/:entity/:id', Analytics.timeStatistics);
 app.get('/transferstatistics/:entity/:id', Analytics.transferStatistics);
 
 app.get('/transfer/:entity/:id', ensureAuthenticated, Analytics.transfer2Statistics);

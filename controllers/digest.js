@@ -78,24 +78,9 @@ function subdomainRegex(baseUrl) {
 exports.pathMatch = function(route, path) {
     'use strict';
 
-
     var pattern = routex.newPattern(route);
 
     return pattern.match(path);
-
-    var PATH_REPLACER = "([^\/]+)";
-    var PATH_NAME_MATCHER = /:([\w\d]+)/g;
-    var param_names = [];
-    var path_match = null;
-
-    // find the names
-    while ((path_match = PATH_NAME_MATCHER.exec(path)) !== null) {
-        param_names.push(path_match[1]);
-    }
-    // replace with the path replacement
-    route = new RegExp(route.replace(PATH_NAME_MATCHER, PATH_REPLACER) + '$');
-
-    return path.match(route);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -223,6 +208,11 @@ exports.digestRequest = function(request, response, next) {
 
         // this will fix problems with forwarding https requests !
         // request.headers.host = proxyUrlParts.hostname;
+        request.headers.host = proxyUrlParts.hostname;
+
+
+        // Header Overrides
+        // request.headers['Content-length'] = '';             // Prevent chunked responses
 
         var options = {
             hostname: proxyUrlParts.hostname,
@@ -256,6 +246,8 @@ exports.digestRequest = function(request, response, next) {
             }
             // Default encodnig
             //pipedResponse.setEncoding(request.headers['accept-encoding'] || 'utf8');
+            pipedResponse.setEncoding('utf8');
+            // On Data
             pipedResponse.on('data', function (chunk) {
                 log.data.out = chunk;
             });
