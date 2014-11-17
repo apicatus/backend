@@ -10,19 +10,22 @@ echo "CREATE INDICE"
 #curl -XPOST 'localhost:9200/logs?pretty'
 echo "CREATE MAPPING"
 #curl -XPOST 'localhost:9200/logs/_mapping/log?pretty' -d @models/logs.mapping.json
+
+
 function call {
     UAS="User-Agent: "$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)
-    ORG="Origin: http://apicat.us:8070"
+    ORG="Origin: http://apicat.us:'$PORT'"
     ENC="Accept-Encoding: gzip,deflate"
     LAN="Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4"
     CON="Connection: keep-alive"
     ACC="Accept: */*"
-    REF="Referer: http://apicat.us:8070/"
+    REF="Referer: http://apicat.us:'$PORT'/"
     curl -s -o /dev/null -w "%{http_code}" $1 -H $ORG -H $ENC -H $LAN -H $UAS -H $ACC -H $REF -H $CON --compressed  ; echo
     exit
 }
 while [ true ]
 do
+    PORT="80"
     SLEEP=$(echo $RANDOM % 10 + 1 | bc)
     MOVIE=$(head -$((${RANDOM} % `wc -l < movies.names` + 1)) movies.names | tail -1)
     UAS="User-Agent: "$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)
@@ -30,32 +33,60 @@ do
     VAL=$(echo $RANDOM % 10 + 1 | bc)
     if [ $VAL -gt 5 ]
     then
-        echo "more: TRY FAIL"
-        curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/more' -X POST -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --data 'xx=11' --compressed  ; echo
+        echo "---->>>> MORE: TRY FAIL <<<<----"
+        curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/more' -X POST -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --data 'xx=11' --compressed  ; echo
         echo "WEATHER"
-        #curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/max?q='$CITY -X GET -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --compressed  ; echo
+        #curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/max?q='$CITY -X GET -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --compressed  ; echo
     else
-        echo "more: TRY GOOD"
-        curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/more' -X POST -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' -H 'Content-Length: 0' --compressed  ; echo
+        echo "---->>>> MORE: TRY GOOD <<<<----"
+        curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/more' -X POST -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' -H 'Content-Length: 0' --compressed  ; echo
     fi
-    echo "WEATHER"
-    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/max?q='$CITY -X GET -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --compressed  ; echo
-    echo "moviedb"
-    curl -s -o /dev/null -w "%{http_code}" 'http://mymovies.apicat.us:8070/?i=&t='$MOVIE -X GET -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' -H 'If-Modified-Since: Thu, 30 Oct 2014 11:57:18 GMT' --compressed  ; echo
+    echo "---->>>> WEATHER <<<<----"
+    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/max?q='$CITY -X GET -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --compressed  ; echo
+    echo "---->>>> moviedb <<<<----"
+    curl -s -o /dev/null -w "%{http_code}" 'http://mymovies.apicat.us:'$PORT'/?i=&t='$MOVIE -X GET -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' -H 'If-Modified-Since: Thu, 30 Oct 2014 11:57:18 GMT' --compressed  ; echo
     #curl curl 'http://myapi.apicat.us:8080/foo' -H 'Origin: http://apicat.us:8080' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8080/' -H 'Connection: keep-alive' --compressed
-    echo "echoed"
-    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/echoed' -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --compressed  ; echo
-    echo "status"
-    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/status' -H 'x-forwarded-for: 190.18.149.180' -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --compressed ; echo
-    echo "foo"
-    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:8070/foo' -H 'x-forwarded-for: 190.18.149.180' -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --compressed ; echo
-    echo "apigee"
+    echo "---->>>> echoed <<<<----"
+    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/echoed' -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --compressed  ; echo
+    echo "---->>>> STATUS <<<<----"
+    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/status' -H 'x-forwarded-for: 190.18.149.180' -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --compressed ; echo
+    echo "---->>>> FOO <<<<----"
+    curl -s -o /dev/null -w "%{http_code}" 'http://myapi.apicat.us:'$PORT'/foo' -H 'Accept-Encoding: gzip,deflate,sdch' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --compressed ; echo
+    echo "---->>>> apigee <<<<----"
     curl -s -o /dev/null -w "%{http_code}" 'http://bmaggi-test.apigee.net/hello-world-nodejs' -X GET  --compressed ; echo
-    #curl 'http://myapi.apicat.us:8070/more' -H 'Origin: http://apicat.us:8070' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Referer: http://apicat.us:8070/' -H 'Connection: keep-alive' --data 'xx=123' --compressed
+    #curl 'http://myapi.apicat.us:'$PORT'/more' -H 'Origin: http://apicat.us:'$PORT'' -H 'Accept-Encoding: gzip,deflate' -H 'Accept-Language: en-US,en;q=0.8,es-419;q=0.6,es;q=0.4' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.104 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Referer: http://apicat.us:'$PORT'/' -H 'Connection: keep-alive' --data 'xx=123' --compressed
     sleep $SLEEP
 done
 
 while [ true ]; do curl -X GET 'http://test.apicat.us/test' | jq '.'; curl -X GET 'http://test.apicat.us/random'| jq '.';sleep 1;done
+
+
+## Procedimiento
+# Crear Indice:
+curl -XPOST 'localhost:9200/logs_2014?pretty'
+# Añadir mappings
+curl -XPOST 'localhost:9200/logs_2014/_mapping/log?pretty' -d @models/logs.mapping.json
+# Crear alias
+curl -XPOST 'http://localhost:9200/_aliases' -d '
+{
+    "actions" : [
+        { "add" : { "index" : "logs_2014", "alias" : "logs" } }
+    ]
+}'
+
+
+
+
+
+
+
+curl -XPOST 'http://localhost:9200/_aliases' -d '
+{
+    "actions" : [
+        { "add" : { "index" : "logs_2014", "alias" : "logs" } }
+    ]
+}'
+
 curl -XGET 'http://localhost:9200/logs/log/_search?pretty' -d '
 {
     "query": {

@@ -170,10 +170,10 @@ function ensureAuthenticated(request, response, next) {
     if(token) {
         AccountMdl.verify(token, function(error, expired, decoded) {
             if(error) {
-                response.statusCode = 403;
+                response.statusCode = 498;
                 response.json({error: 'Invalid token !'});
             } else if(expired) {
-                response.statusCode = 403;
+                response.statusCode = 401;
                 response.json({error: 'Token expired. You need to log in again.'});
             } else {
                 request.user = decoded;
@@ -181,7 +181,7 @@ function ensureAuthenticated(request, response, next) {
             }
         });
     } else {
-        response.statusCode = 403;
+        response.statusCode = 401;
         response.json({error: 'No auth token received !'});
         /*
         if(request.accepts('html')) {
