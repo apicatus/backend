@@ -329,6 +329,8 @@ app.param('entity', function(request, response, next, entity) {
 app.get('/summary', ensureAuthenticated, Analytics.summary);
 app.get('/transferstatistics/:entity/:id', Analytics.transferStatistics);
 
+app.get('/unique', ensureAuthenticated, Analytics.unique);
+app.get('/unique/:entity/:id', ensureAuthenticated, Analytics.unique);
 app.get('/transfer/:entity/:id', ensureAuthenticated, Analytics.transfer2Statistics);
 app.get('/transfer', ensureAuthenticated, Analytics.transfer2Statistics);
 app.get('/geo2stats', ensureAuthenticated, Analytics.geo2stats);

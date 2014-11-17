@@ -47,8 +47,7 @@
             },
             "ip": {
                 "type": "ip",
-                "store" : "yes",
-                "index" : "no"
+                "store" : "yes"
             },
             "digestor": {
                 "type": "string",

@@ -200,7 +200,8 @@ exports.read = function(request, response, next) {
             company: request.user.company,
             birthDate: request.user.birthDate,
             createdAt: request.user.createdAt,
-            updatedAt: request.user.updatedAt
+            updatedAt: request.user.updatedAt,
+            digestors: request.user.digestors
         });
     } else {
         response.statusCode = 500;

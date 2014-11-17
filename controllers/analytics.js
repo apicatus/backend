@@ -111,6 +111,7 @@ var parseQuery = function(request) {
         size: parseInt(params.size, 10) || 100,                         // How many terms ?
         skip: parseInt(params.skip, 10) || 100,                         // Paginate
         limit: parseInt(params.limit, 10) || 100,                       // Paginate limit of returned objects
+        precision: parseInt(params.precision, 10) || 100,               // Unique cardinality precision
         since: params.since,                                            // Histogram lower bound
         until: params.until,                                            // Histogram upper bound
         interval: intervalToString(interval)                            // Histogram interval
@@ -605,6 +606,141 @@ exports.transfer2Statistics = function (request, response, next) {
                     "terms": {
                         "field": "status",
                         "size": query.size
+                    }
+                }
+            }
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+        }
+
+        return search;
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(query.since, query.until),
+    }).then(function (metrics) {
+        if(!metrics) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        metrics.period = {
+            since: new Date(query.since),
+            until: new Date(query.until),
+            interval: query.interval
+        }
+        return response.json(metrics);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Geolocation statistics                                                    //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON Collection of Platform statistics                   //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url GET /platform                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.unique = function (request, response, next) {
+    'use strict';
+
+    var query = parseQuery(request);
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : {
+                    "filter": {
+                        "bool": {
+                            "must": [{
+                                "range" : {
+                                    "date": {
+                                        from: since,
+                                        to: until
+                                    }
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'time'
+                                }
+                            }, {
+                                "exists": {
+                                    "field": 'status'
+                                }
+                            }],
+                            "should": []
+                        }
+                    }
+                }
+            },
+            "aggregations": {
+                "history": {
+                    "date_histogram": {
+                        "field": "date",
+                        "interval": query.interval,
+                        "min_doc_count": 0,
+                        "extended_bounds": {
+                            "min": since,
+                            "max": until
+                        }
+                    },
+                    "aggregations": {
+                        "ip_count": {
+                            "cardinality": {
+                                "field": "ip",
+                                "precision_threshold": query.precision
+                            }
+                        },
+                        "geo": {
+                            "terms": {
+                                "field": "geo.country",
+                                "size": query.size
+                            }
+                        }
+                    }
+                },
+                "unique": {
+                    "cardinality": {
+                        "field": "ip",
+                        "precision_threshold": query.precision
+                    }
+                },
+                "count": {
+                    "value_count": {
+                        "field": "ip"
                     }
                 }
             }

@@ -171,25 +171,26 @@ exports.read = function (request, response, next) {
 exports.create = function(request, response, next) {
     'use strict';
 
+    var testIps = ["103.7.104.10", "80.78.64.10", "154.66.96.12", "185.4.52.21", "196.1.15.21", "204.14.248.21", "204.16.112.21", "179.0.131.21", "201.229.64.12", "27.113.240.10", "202.36.91.12", "103.243.18.12", "194.50.35.12", "209.195.192.12", "196.223.26.12", "185.11.8.11", "146.226.0.11", "162.210.68.11", "103.245.248.3", "161.196.0.11", "103.25.228.1", "185.4.160.12", "190.108.0.12", "100.42.128.12", "217.169.32.12", "77.104.64.11", "202.152.32.4", "221.199.224.11"];
+    var testIp = testIps[Math.floor(Math.random() * testIps.length)];
     var ip = request.headers['x-forwarded-for'] ||
         request.connection.remoteAddress ||
         request.socket.remoteAddress ||
         request.connection.socket.remoteAddress;
 
     var log = {
-        ip: ip,
+        ip: testIp,
         uri: url.parse(request.url, true, true),
         requestHeaders: request.headers,
-        requestBody: request.body,
         responseHeaders: {},
         date: new Date(),
         status: 0,
         time: 0,
         data: {
-            out: '',
-            in: JSON.stringify(request.body)
+            out: 0,
+            in: Buffer.byteLength(JSON.stringify(request.body)) || 0
         },
-        geo: geoip.lookup(ip),
+        geo: geoip.lookup(testIp),
         ua: uap.parse(request.headers['user-agent'])
     };
     log.ua.device.type = device.parse(request);
@@ -202,6 +203,8 @@ exports.create = function(request, response, next) {
         if(response.getHeader('Transfer-Encoding')) {
             console.log('------->>CHUNKED<<------');
             console.log("ENC: ", response.getHeader('Transfer-Encoding'));
+            // TODO !!
+            // Wont work for JSON Objects !!!!!
             console.log("SIZE: ", Buffer.byteLength(log.data.toString(), 'chunked'));
             console.log('------->>CHUNKED<<------');
         }

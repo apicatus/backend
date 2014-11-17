@@ -250,16 +250,20 @@ exports.updateOne = function (request, response, next) {
 exports.deleteOne = function (request, response, next) {
     'use strict';
 
+    var index = request.user.digestors.indexOf(request.params.id);
+    if(index < 0) {
+        response.statusCode = 403;
+        return response.json({action: 'deleteOne', result: false});
+    }
     Digestor.findOneAndRemove({$and: [{_id: request.params.id}, {owners: request.user._id}]})
     .exec(function (error, digestor) {
         if (error) {
             response.statusCode = 500;
             return next(error);
         }
-        var index = request.user.digestors.indexOf(request.params.id);
-        console.log("REQ: ", request.user.digestors, " IDX: ", index)
+        return response.json(digestor);
+
         request.user.digestors.splice(index, 1);
-        console.log("REQ: ", request.user.digestors, " IDX: ", index)
         request.user.save(function(error, user){
             if (error) {
                 console.log("save error", error);
