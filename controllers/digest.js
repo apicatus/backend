@@ -442,9 +442,11 @@ exports.digestRequest = function(request, response, next) {
             ///////////////////////////////////////////////////////////////
             // Log request                                               //
             ///////////////////////////////////////////////////////////////
-            var log = LogsCtl.create(request, response, next);
-            log.digestor = digestor._id;
-            log.method = method._id;
+            if(method.logging) {
+                var log = LogsCtl.create(request, response, next);
+                log.digestor = digestor._id;
+                log.method = method._id;
+            }
             ///////////////////////////////////////////////////////////////
             // If proxy is enabled and valid then pipe request           //
             ///////////////////////////////////////////////////////////////

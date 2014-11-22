@@ -89,7 +89,7 @@ var Digestor = new Schema({
     protocol: { type: String, required: false, default: "http" },
     baseURL: { type: String, required: false },
     allowCrossDomain: { type: Boolean, default: false, required: false },
-    logging: { type: Boolean, default: false, required: false },
+    logging: { type: Boolean, default: true, required: false },
     created: { type: Date, default: Date.now },
     lastUpdate: { type: Date, default: Date.now },
     lastAccess: { type: Date, default: Date.now },

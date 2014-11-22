@@ -45,7 +45,7 @@ var environments = {
         resetTokenExpiresMinutes: 20,
         staticPath: "/Users/benjius/Desktop/apicatus/frontend/build",
         mongoUrl: {
-            hostname: "miapi.com",
+            hostname: "localhost",
             port: 27017,
             username: "admin",
             password: "admin",
@@ -80,7 +80,7 @@ var environments = {
         environment: process.env.NODE_ENV,
         listenPort: process.env.PORT || 8080,
         ip: process.env.IP || os.hostname(),
-        baseUrl: 'miapi.com',
+        baseUrl: 'apicat.us',
         allowCrossDomain: false,
         autoStart: false,
         ttl: (1000 * 60 * 100),

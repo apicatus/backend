@@ -42,6 +42,11 @@
     5) Total app errors
     6) Crashes by device and by Os
     7) Transactions Per Second
+    8) Throughput (TPM transactions per minute or TPS or RPM)
+    9) SLA Report
+    10) Sort error rate by (status, url, count)
+    11) Time consumbtion by caller
+
 */
 
 // Controllers
