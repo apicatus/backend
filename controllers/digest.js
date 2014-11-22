@@ -442,7 +442,7 @@ exports.digestRequest = function(request, response, next) {
             ///////////////////////////////////////////////////////////////
             // Log request                                               //
             ///////////////////////////////////////////////////////////////
-            if(method.logging) {
+            if(digestor.logging) {
                 var log = LogsCtl.create(request, response, next);
                 log.digestor = digestor._id;
                 log.method = method._id;
