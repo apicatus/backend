@@ -249,7 +249,7 @@ exports.digestRequest = function(request, response, next) {
             pipedResponse.setEncoding('utf8');
             // On Data
             pipedResponse.on('data', function (chunk) {
-                log.data.out = chunk;
+                //log.data.out = chunk;
             });
             pipedResponse.on('end', function() {
                 console.log("response ended");
