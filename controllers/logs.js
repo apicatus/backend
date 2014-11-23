@@ -89,7 +89,6 @@ exports.read = function (request, response, next) {
         size: query.limit || 10,
         from: query.from || 0,
         body: {
-            //_source: [ 'date', 'ip', 'uri', 'status', 'time' ],
             query: {
                 filtered: {
                     query: {
@@ -97,7 +96,7 @@ exports.read = function (request, response, next) {
                         bool: {
                             should: [{
                                 query_string: {
-                                    query: "*"
+                                    query: query.find || "*"
                                 }
                             }]
                         }
