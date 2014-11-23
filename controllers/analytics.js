@@ -63,33 +63,55 @@ var client = new elasticsearch.Client();
 ///////////////////////////////////////////////////////////////////////////////
 
 var intervalToString = function(milliseconds) {
+
     var temp = Math.floor(milliseconds / 1000);
 
     var years = Math.floor(temp / 31536000);
     if (years) {
-        return years + 'y';
+        return {
+            text: years + 'y',
+            value: years * 31536000000
+        };
     }
     var weeks = Math.floor((temp %= 31536000) / 604800);
     if (weeks) {
-        return weeks + 'w';
+        return {
+            text: weeks + 'w',
+            value: weeks * 6048000000
+        };
     }
     var days = Math.floor((temp %= 31536000) / 86400);
     if (days) {
-        return days + 'd';
+        return {
+            text: days + 'd',
+            value: days * 86400000
+        };
     }
     var hours = Math.floor((temp %= 86400) / 3600);
     if (hours) {
-        return hours + 'h';
+        return {
+            text: hours + 'h',
+            value: hours * 3600000
+        };
     }
     var minutes = Math.floor((temp %= 3600) / 60);
     if (minutes) {
-        return minutes + 'm';
+        return {
+            text: minutes + 'm',
+            value: minutes * 60000
+        };
     }
     var seconds = temp % 60;
     if (seconds) {
-        return seconds + 's';
+        return {
+            text: seconds + 's',
+            value: seconds * 1000
+        };
     }
-    return '1h';
+    return {
+        text: '1h',
+        value: 3600000
+    };
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -550,7 +572,7 @@ exports.transfer2Statistics = function (request, response, next) {
                 "history": {
                     "date_histogram": {
                         "field": "date",
-                        "interval": query.interval,
+                        "interval": query.interval.text,
                         "min_doc_count": 0,
                         "extended_bounds": {
                             "min": since,
@@ -715,7 +737,7 @@ exports.unique = function (request, response, next) {
                 "history": {
                     "date_histogram": {
                         "field": "date",
-                        "interval": query.interval,
+                        "interval": query.interval.text,
                         "min_doc_count": 0,
                         "extended_bounds": {
                             "min": since,
@@ -1270,7 +1292,7 @@ exports.summary = function (request, response, next) {
                         "dataset": {
                             "date_histogram": {
                                 "field": "date",
-                                "interval": query.interval,
+                                "interval": query.interval.text,
                                 "min_doc_count": 0,
                                 "extended_bounds": {
                                     "min": since,
@@ -1316,7 +1338,12 @@ exports.summary = function (request, response, next) {
         }
         return response.json({
             current: metrics.responses[0].aggregations,
-            previous: metrics.responses[1].aggregations
+            previous: metrics.responses[1].aggregations,
+            period: {
+                since: new Date(query.since),
+                until: new Date(query.until),
+                interval: query.interval
+            }
         });
     }, function (error, body, code) {
         console.trace("error: ", error.message);
