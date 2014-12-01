@@ -37,50 +37,94 @@
 // Controllers
 var conf = require('../config'),
     mongoose = require('mongoose'),
-	socketio  = require('socket.io');
+	socketio  = require('socket.io'),
+    Account = require('../models/account');
 
 // Load model
 var digestor_schema = require('../models/digestor'),
     Digestor = mongoose.model('Digestor', digestor_schema);
 
-// Load Account model
-var account_schema = require('../models/account'),
-    Account = mongoose.model('Account', account_schema);
+var rooms = ['global'];
+var users = {};
+var sockets = [];
+var io = null;
 
 exports.setup = function(server) {
     'use strict';
-	var socket = socketio.listen(server);
+	io = socketio.listen(server);
+
     ///////////////////////////////////////////////////////////////////////////////
     // socket.io                                                                 //
     ///////////////////////////////////////////////////////////////////////////////
-    socket.on('connection', function (socket) {
-        socket.emit('message', { hello: 'sockets: world' });
-        socket.on('angularMessage', function (data) {
-            console.log(data);
+    io.on('connection', function (socket) {
+
+
+        sockets.push(socket);
+
+        socket.emit('message', {
+            greet: 'hello',
+            user: socket.user
         });
-    });
-    socket.on('connection', function (socket) {
-        socket.emit('message', { hello: 'world' });
-        socket.on('angularMessage', function (data) {
-            console.log(data);
+
+        socket.on('userLoggedIn', function (data) {
+            console.log("userLoggedIn: ", data);
         });
+
+        socket.on('disconnect', function () {
+            console.log("disconnect: ", socket.user);
+            var id = socket.user._id;
+            sockets = sockets.filter(function(socket){
+                return socket.user._id != id;
+            });
+        });
+
     });
-    socket.on('disconnect', function () {
+    io.on('disconnect', function () {
         console.log("Socket disconnected");
         socket.emit('pageview', { 'connections': Object.keys(socket.connected).length });
     });
-    socket.use(function(socket, next) {
+    io.use(function(socket, next) {
         var handshakeData = socket.request;
         var token = socket.handshake.query.token;
         console.log('handshakeData:', socket.handshake.query.token);
-        if(token != '1234') {
+        if(token) {
+            Account.verify(token, function(error, expired, decoded) {
+                if(error) {
+                    next(new Error('Invalid Token'));
+                    return socket.disconnect('unauthorized');
+                } else if(expired) {
+                    next(new Error('Token expired. You need to log in again.'));
+                    return socket.disconnect('unauthorized');
+                } else {
+                    socket.user = decoded;
+                    return next();
+                }
+            });
+        } else {
             next(new Error('not authorized'));
             return socket.disconnect('unauthorized');
         }
-        next();
+        //next();
     });
 
-    return socket;
+    return io;
 };
+
+exports.notify = function(log, event) {
+    'use strict';
+    var notifySockets = sockets.filter(function(socket){
+        return (socket.user.digestors.indexOf(log.digestor) > -1);
+    });
+    var users = notifySockets.map(function(socket){
+        return socket.user;
+    });
+    // console.log("notify: ", event, log.digestor, users[0].username, io.sockets.socket);
+    // notify digestor owners
+    notifySockets.forEach(function(socket, index){
+        //socket.emit('message', {greet: socket.user._id});
+        socket.emit('message', {log: log});
+    });
+
+}
 
 

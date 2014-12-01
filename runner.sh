@@ -25,7 +25,7 @@ function call {
 }
 while [ true ]
 do
-    PORT="80"
+    PORT="8070"
     SLEEP=$(echo $RANDOM % 10 + 1 | bc)
     MOVIE=$(head -$((${RANDOM} % `wc -l < movies.names` + 1)) movies.names | tail -1)
     UAS="User-Agent: "$(head -$((${RANDOM} % `wc -l < uas.txt` + 1)) uas.txt | tail -1)

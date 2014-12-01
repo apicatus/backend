@@ -40,7 +40,8 @@ var mongoose = require('mongoose'),
     geoip = require('geoip-lite'),
     uap = require('ua-parser'),
     device = require('../services/device'),
-    elasticsearch = require('elasticsearch');
+    elasticsearch = require('elasticsearch'),
+    notifierService = require('../services/notifier');
 
 // Load model
 var digestor_schema = require('../models/digestor'),
@@ -212,6 +213,7 @@ exports.create = function(request, response, next) {
             id: mongoose.Types.ObjectId().toString(),
             body: log
         }).then(function (response) {
+            notifierService.notify(log, 'message');
             return response;
         }, function (error, body, code) {
             console.trace("error: ", error.message);

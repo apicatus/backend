@@ -43,7 +43,7 @@ module.exports = {
 
             var bound, captured, i, match, name, value, _i, _len;
             match = this.regex.exec(url);
-            if (match == null) {
+            if (!match) {
                 return null;
             }
             captured = match.slice(1);
@@ -54,11 +54,11 @@ module.exports = {
             for (i = _i = 0, _len = captured.length; _i < _len; i = ++_i) {
                 value = captured[i];
                 name = this.names[i];
-                if (value == null) {
+                if (!value) {
                     continue;
                 }
                 if (name === '_') {
-                    if (bound._ == null) {
+                    if (!bound._) {
                         bound._ = [];
                     }
                     bound._.push(value);
@@ -73,7 +73,7 @@ module.exports = {
         'use strict';
 
         var isRegex, pattern, regexString;
-        if (separator == null) {
+        if (!separator) {
             separator = '/';
         }
         isRegex = arg instanceof RegExp;
@@ -102,7 +102,7 @@ module.exports = {
         'use strict';
 
         var escapedSeparator, name, names, regex, results;
-        if (separator == null) {
+        if (!separator) {
             separator = '/';
         }
         if (arg instanceof RegExp) {
@@ -129,7 +129,7 @@ module.exports = {
         'use strict';
 
         var escapedSeparator, regex;
-        if (separator == null) {
+        if (!separator) {
             separator = '/';
         }
         escapedSeparator = module.exports.escapeForRegex(separator);
@@ -140,7 +140,7 @@ module.exports = {
         'use strict';
 
         var escapedSeparator, stringWithEscapedSeparators;
-        if (separator == null) {
+        if (!separator) {
             separator = '/';
         }
         stringWithEscapedSeparators = module.exports.escapeSeparators(string, separator);
