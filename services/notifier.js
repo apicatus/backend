@@ -122,6 +122,18 @@ exports.notify = function(log, event) {
     // notify digestor owners
     notifySockets.forEach(function(socket, index){
         //socket.emit('message', {greet: socket.user._id});
+        Account.verify(socket.user.token.token, function(error, expired, decoded) {
+            if(error) {
+                socket.disconnect('unauthorized');
+                sockets.splice(index, 1);
+                return new Error('Invalid Token');
+            } else if(expired) {
+                socket.disconnect('unauthorized');
+                sockets.splice(index, 1);
+                return new Error('Token expired. You need to log in again.');
+            }
+        });
+
         socket.emit('message', {log: log});
     });
 

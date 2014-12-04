@@ -50,6 +50,12 @@ var Parameters = new Schema({
     default: { type: String, required: true, trim: true },
     type: { type: String, required: true, trim: true }
 });
+var Assertions = new Schema({
+    source: { type: Number, required: true, default: 0 },
+    assertion: { type: Number, required: true, default: 0 },
+    property: { type: String, required: false, trim: true },
+    value: { type: String, required: false, trim: true }
+});
 var Methods = new Schema({
     name: { type: String, required: true, trim: true },
     nickname: { type: String, required: false, trim: true },
@@ -73,6 +79,7 @@ var Methods = new Schema({
         },
         contentType: { type: String, required: false }
     },
+    assertions: [ Assertions ],
     authorizations: [Authorizations]
 });
 var Endpoints = new Schema({

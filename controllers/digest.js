@@ -279,6 +279,55 @@ exports.digestRequest = function(request, response, next) {
         request.pipe(pipedRequest);
         request.resume();
     };
+    var runAssertions = function(method, request, response) {
+        var tests = {
+            body: function() {
+
+            },
+            headers: function() {
+
+            },
+            status: function() {
+
+            },
+            timing: function() {
+
+            }
+        }
+        function ass(ass) {
+            switch(ass.format) {
+                case 'string':
+                    return ass.source
+            }
+        }
+        var asserts = [{
+            source: 'body',
+            format: 'json',
+            property: 'name',
+            comparsion: 'equals',
+            expect: 1234
+        }, {
+            source: 'status',
+            format: 'number',
+            comparsion: '=',
+            expect: 1234
+        }, {
+            source: 'timing',
+            format: 'number',
+            comparsion: '>',
+            expect: 1500
+        }, {
+            source: 'headers',
+            format: 'string',
+            property: 'Content-length',
+            comparsion: 'has',
+            expect: 'hola'
+        }];
+
+        asserts.every(function(assert){
+            return tests.apply(assert);
+        });
+    }
     ///////////////////////////////////////////////////////////////////////////
     // Handle Request                                                        //
     ///////////////////////////////////////////////////////////////////////////
