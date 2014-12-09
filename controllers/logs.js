@@ -198,6 +198,8 @@ exports.create = function(request, response, next) {
         log.time = new Date().getTime() - log.date.getTime();
         log.responseHeaders = response._headers;
         log.status = response.statusCode;
+        log.data.out = response.getHeader('content-length');
+
         if(response.getHeader('Transfer-Encoding')) {
             console.log('------->>CHUNKED<<------');
             console.log("ENC: ", response.getHeader('Transfer-Encoding'));

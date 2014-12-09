@@ -474,6 +474,12 @@ exports.agentStatistics = function (request, response, next) {
                             }
                         }
                     }
+                },
+                "geo": {
+                    "terms": {
+                        "field": "geo.country",
+                        "size": query.size
+                    }
                 }
             }
         };
@@ -515,6 +521,11 @@ exports.agentStatistics = function (request, response, next) {
             response.statusCode = 404;
             return response.json({"title": "error", "message": "Not Found", "status": "fail"});
         }
+        metrics.period = {
+            since: new Date(query.since),
+            until: new Date(query.until),
+            interval: query.interval
+        };
         return response.json(metrics.aggregations);
     }, function (error, body, code) {
         console.trace("error: ", error.message);

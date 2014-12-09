@@ -73,6 +73,7 @@ exports.setup = function(server) {
         socket.on('disconnect', function () {
             console.log("disconnect: ", socket.user);
             var id = socket.user._id;
+            // Remove Socket from list
             sockets = sockets.filter(function(socket){
                 return socket.user._id != id;
             });
