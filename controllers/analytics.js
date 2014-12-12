@@ -535,6 +535,203 @@ exports.agentStatistics = function (request, response, next) {
     });
 };
 
+exports.agentStatsByDate = function (request, response, next) {
+    'use strict';
+
+    var query = parseQuery(request);
+
+    var search = function(since, until) {
+        var search = {
+            "query": {
+                "filtered" : {
+                    "filter": {
+                        "bool": {
+                            "must": [{
+                                "range" : {
+                                    date: {
+                                        from: since,
+                                        to: until
+                                    }
+                                }
+                            }],
+                            "should": []
+                        }
+                    }
+                }
+            },
+            "aggregations": {
+                "history": {
+                    "date_histogram": {
+                        "field": "date",
+                        "interval": query.interval.text,
+                        "min_doc_count": 0,
+                        "extended_bounds": {
+                            "min": since,
+                            "max": until
+                        }
+                    },
+                    "aggregations": {
+                        "transfer_percentiles": {
+                            "percentiles": {
+                                field: "responseHeaders.content-length"
+                            }
+                        },
+                        "transfer_statistics": {
+                            "extended_stats": {
+                                field: "responseHeaders.content-length"
+                            }
+                        },
+                        "time_statistics": {
+                            "extended_stats": {
+                                field: "time"
+                            }
+                        },
+                        "deviceTypes": {
+                            "terms": {
+                                "field": "ua.device.type",
+                                "size": query.size
+                            }
+                        },
+                        "geo": {
+                            "terms": {
+                                "field": "geo.country",
+                                "size": query.size
+                            }
+                        },
+                        "statuses": {
+                            "terms": {
+                                "field": "status",
+                                "size": query.size
+                            }
+                        }
+                    }
+                }
+            }
+            /*"aggregations": {
+                "agents": {
+                    "terms": {
+                        "field": "ua.ua.family",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        },
+                        "transfers": {
+                            "extended_stats": {
+                                "field": "responseHeaders.content-length"
+                            }
+                        }
+                    }
+                },
+                "deviceFamilies": {
+                    "terms": {
+                        "field": "ua.device.family",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        }
+                    }
+                },
+                "deviceTypes": {
+                    "terms": {
+                        "field": "ua.device.type",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "geo": {
+                            "terms": {
+                                "field": "geo.country",
+                                "size": query.size
+                            }
+                        }
+                    }
+                },
+                "strings": {
+                    "terms": {
+                        "field": "ua.string",
+                        "size": query.size
+                    }
+                },
+                "oess": {
+                    "terms": {
+                        "field": "ua.os.family",
+                        "size": query.size
+                    },
+                    "aggregations": {
+                        "stats": {
+                            "extended_stats": {
+                                "field": "time"
+                            }
+                        }
+                    }
+                },
+                "geo": {
+                    "terms": {
+                        "field": "geo.country",
+                        "size": query.size
+                    }
+                }
+            }*/
+        };
+        if(request.params.entity && request.params.id) {
+            search.query.filtered.filter.bool.must.push({
+                "fquery": {
+                    "query": {
+                        "query_string": {
+                            "query": request.params.entity + ":" + request.params.id
+                        }
+                    },
+                    "_cache": true
+                }
+            });
+        } else {
+            request.user.digestors.forEach(function(digestor, index) {
+                search.query.filtered.filter.bool.should.push({
+                    "fquery": {
+                        "query": {
+                            "query_string": {
+                                "query": "digestor:" + digestor
+                            }
+                        },
+                        "_cache": true
+                    }
+                });
+            });
+        }
+
+        return search;
+    };
+
+    client.search({
+        index: 'logs',
+        type: 'log',
+        body: search(query.since, query.until),
+    }).then(function (metrics) {
+        if(!metrics.aggregations) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Not Found", "status": "fail"});
+        }
+        metrics.period = {
+            since: new Date(query.since),
+            until: new Date(query.until),
+            interval: query.interval
+        };
+        return response.json(metrics.aggregations);
+    }, function (error, body, code) {
+        console.trace("error: ", error.message);
+        if (error) throw new Error(error);
+        response.statusCode = 500;
+        return next(error);
+    });
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // Geolocation statistics                                                    //
 //                                                                           //

@@ -345,6 +345,8 @@ app.get('/lang/:entity/:id', ensureAuthenticated, Analytics.languageStatistics);
 app.get('/agent', ensureAuthenticated, Analytics.agentStatistics);
 app.get('/agent/:entity/:id', ensureAuthenticated, Analytics.agentStatistics);
 
+app.get('/agenthistory', ensureAuthenticated, Analytics.agentStatsByDate);
+app.get('/agenthistory/:entity/:id', ensureAuthenticated, Analytics.agentStatsByDate);
 
 
 app.get('/throttle', Throttle.throttle, function(req, res) {
