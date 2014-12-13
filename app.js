@@ -276,28 +276,8 @@ app.route('/user/:id')
     .delete(ensureAuthenticated, AccountCtl.delete);
 
 app.post('/user/forgot', AccountCtl.resetToken);
-app.get('/user/reset/:id/:email', function(req, res) {
-    'use strict';
-
-    console.log('GOT IN /reset/:id...');
-    var token = req.params.id,
-        email = req.params.email,
-        messages = flash(null, null);
-
-    if (!token) {
-        console.log('Issue getting reset :id');
-        //TODO: Error response...
-    }
-    else {
-        console.log('In ELSE ... good to go.');
-        //TODO
-        //
-        //1. find user with reset_token == token .. no match THEN error
-        //2. check now.getTime() < reset_link_expires_millis
-        //3. if not expired, present reset password page/form
-        res.render('resetpass', {email: email});
-    }
-});
+app.post('/user/reset/:token', AccountCtl.resetPassword);
+app.post('/user/changepassword', AccountCtl.changePassword);
 
 
 ///////////////////////////////////////////////////////////////////////////////

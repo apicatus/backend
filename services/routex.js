@@ -112,7 +112,7 @@ module.exports = {
         regex = new RegExp("((:?:[^" + escapedSeparator + "\(\)]+)|(?:[\*]))", 'g');
         names = [];
         results = regex.exec(arg);
-        while (results != null) {
+        while (results !== null) {
             name = results[1].slice(1);
             if (name === '_') {
                 throw new TypeError(":_ can't be used as a pattern name in pattern " + arg);
@@ -147,7 +147,8 @@ module.exports = {
         stringWithEscapedSeparators = stringWithEscapedSeparators.replace(/\((.*?)\)/g, '(?:$1)?').replace(/\*/g, '(.*?)');
         escapedSeparator = module.exports.escapeForRegex(separator);
         module.exports.getNames(string, separator).forEach(function(name) {
-            return stringWithEscapedSeparators = stringWithEscapedSeparators.replace(':' + name, "([^\\" + separator + "]+)");
+            stringWithEscapedSeparators = stringWithEscapedSeparators.replace(':' + name, "([^\\" + separator + "]+)");
+            return stringWithEscapedSeparators;
         });
         return "^" + stringWithEscapedSeparators + "$";
     }

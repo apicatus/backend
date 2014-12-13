@@ -7,6 +7,7 @@
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
 // @date         : 19 Oct 2014                                               //
+// @license:     : MIT                                                       //
 // ------------------------------------------------------------------------- //
 //                                                                           //
 // Copyright 2013~2014 Benjamin Maggi <benjaminmaggi@gmail.com>              //
@@ -36,13 +37,9 @@
 
 // Controllers
 var conf = require('../config'),
-    mongoose = require('mongoose'),
 	socketio  = require('socket.io'),
     Account = require('../models/account');
 
-// Load model
-var digestor_schema = require('../models/digestor'),
-    Digestor = mongoose.model('Digestor', digestor_schema);
 
 var rooms = ['global'];
 var users = {};
@@ -82,10 +79,9 @@ exports.setup = function(server) {
     });
     io.on('disconnect', function () {
         console.log("Socket disconnected");
-        socket.emit('pageview', { 'connections': Object.keys(socket.connected).length });
+        io.sockets.emit('pageview', { 'connections': Object.keys(io.connected).length });
     });
     io.use(function(socket, next) {
-        var handshakeData = socket.request;
         var token = socket.handshake.query.token;
         console.log('handshakeData:', socket.handshake.query.token);
         if(token) {
@@ -137,7 +133,6 @@ exports.notify = function(log, event) {
 
         socket.emit('message', {log: log});
     });
-
-}
+};
 
 

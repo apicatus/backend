@@ -7,6 +7,7 @@
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
 // @date         : 04 Dec 2014                                               //
+// @license:     : MIT                                                       //
 // ------------------------------------------------------------------------- //
 //                                                                           //
 // Copyright 2013~2014 Benjamin Maggi <benjaminmaggi@gmail.com>              //

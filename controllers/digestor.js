@@ -7,6 +7,7 @@
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
 // @date         : 6 Oct 2013                                                //
+// @license:     : MIT                                                       //
 // ------------------------------------------------------------------------- //
 //                                                                           //
 // Copyright 2013~2014 Benjamin Maggi <benjaminmaggi@gmail.com>              //
@@ -126,6 +127,8 @@ exports.readOne = function (request, response, next) {
 // @url GET /digestor/:id                                                    //
 ///////////////////////////////////////////////////////////////////////////////
 exports.findEntityById = function(request, response, next) {
+    'use strict';
+
     Digestor.findOne({
         $and: [
             {
@@ -261,8 +264,6 @@ exports.deleteOne = function (request, response, next) {
             response.statusCode = 500;
             return next(error);
         }
-        return response.json(digestor);
-
         request.user.digestors.splice(index, 1);
         request.user.save(function(error, user){
             if (error) {

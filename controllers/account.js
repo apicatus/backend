@@ -7,6 +7,7 @@
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
 // @date         : 12 Dec 2012                                               //
+// @license:     : MIT                                                       //
 // ------------------------------------------------------------------------- //
 //                                                                           //
 // Copyright 2013~2014 Benjamin Maggi <benjaminmaggi@gmail.com>              //
@@ -39,7 +40,7 @@ var conf = require('../config'),
     mongoose = require('mongoose'),
     passport = require('passport'),
     extend = require('util')._extend,
-    Mailer = require('../controllers/mailer')/*,
+    Mailer = require('../services/mailer')/*,
     GitHubStrategy = require('passport-github').Strategy,
     GitHubApi = require("github")*/;
 
@@ -128,14 +129,14 @@ exports.signIn = function(request, response, next) {
             Account.createUserToken(user.email, function(error, userAndToken) {
                 if (error || !userAndToken) {
                     response.statusCode = 500;
-                    response.json({error: 'Error generating token'});
+                    return response.json({"title": "error", "message": "Error generating token", "status": "fail"});
                 } else {
                     response.json(userAndToken);
                 }
             });
         } else {
             response.statusCode = 401;
-            return response.json({error: 'unauthorized'});
+            return response.json({"title": "error", "message": "Unauthorized", "status": "fail"});
         }
     })(request, response, next);
 };
@@ -162,14 +163,15 @@ exports.signOut = function(request, response, next) {
                 return next(error);
             } else {
                 response.statusCode = 200;
-                response.json({"title": "sucess", "message": "signout", "status": "ok"});
+                return response.json({"title": "sucess", "message": "signout", "status": "fail"});
             }
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding api token.'});
+        return response.json({"title": "sucess", "message": "Error decoding api token", "status": "ok"});
     }
 };
+
 ///////////////////////////////////////////////////////////////////////////////
 // Route to get currently authenticated Account                              //
 //                                                                           //
@@ -205,7 +207,7 @@ exports.read = function(request, response, next) {
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding api token.'});
+        return response.json({"title": "sucess", "message": "Error decoding api token", "status": "ok"});
     }
 };
 
@@ -251,7 +253,7 @@ exports.create = function(request, response, next) {
             return next(error);
         } else if (user) {
             response.statusCode = 409;
-            return response.json({error: "existingUser", message: 'User already exists'});
+            return response.json({"title": "sucess", "message": "User already exists", "status": "fail"});
         }
         var account = new Account({ username : request.body.username, email: request.body.email});
         account.setPassword(request.body.password, function(error) {
@@ -262,7 +264,7 @@ exports.create = function(request, response, next) {
             account.save(function(error, account) {
                 if (error || !account) {
                     response.statusCode = 500;
-                    return response.json({error: "faultSave", message: 'Cannot save user'});
+                    return response.json({"title": "sucess", "message": "Cannot save user", "status": "fail"});
                 }
                 response.statusCode = 201;
                 return response.json(account);
@@ -313,7 +315,7 @@ exports.update = function(request, response, next) {
         });
     } else {
         response.statusCode = 403;
-        response.json({error: 'Forbidden'});
+        return response.json({"title": "error", "message": "Forbidden", "status": "fail"});
     }
 };
 
@@ -346,21 +348,70 @@ exports.delete = function(request, response, next) {
         });
     } else {
         response.statusCode = 500;
-        response.json({error: 'Error decoding api token.'});
+        return response.json({"title": "error", "message": "Error decoding api token", "status": "fail"});
     }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Route to change password                                                  //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON updated account                                     //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url DELETE /users                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.changePassword = function(request, response, next) {
+    'use strict';
+
+    if(!request.body.password || request.user) {
+        response.statusCode = 400;
+        return response.json({"title": "error", "message": "Missing input param", "status": "fail"});
+    }
+    request.user.setPassword(request.body.password, function(error) {
+        if (error) {
+            response.statusCode = 500;
+            return response.json({"title": "error", "message": "Cannot set password", "status": "fail"});
+        }
+        request.user.resetPasswordToken = undefined;
+        request.user.resetPasswordExpires = undefined;
+        request.user.save(function(error, user) {
+            if (error || !user) {
+                response.statusCode = 500;
+                return response.json({"title": "error", "message": "Cannot save user", "status": "fail"});
+            }
+            response.statusCode = 200;
+            return response.json(user);
+        });
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Route to generate reset token                                             //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON updated account                                     //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url DELETE /users                                                        //
+///////////////////////////////////////////////////////////////////////////////
 exports.resetToken = function(request, response, next) {
     'use strict';
 
     if (request.body.email) {
         Account.generateResetToken(request.body.email, function(error, user) {
             if(error || !user) {
-                response.statusCode = 500;
-                return next();
+                response.statusCode = 404;
+                return response.json({"title": "error", "message": "No user with that email found", "status": "fail"});
             } else {
-                var token = user.reset_token;
-                var resetLink = 'http://' + conf.baseUrl + '/reset/'+ token + '/' + user.email;
+                var token = user.resetPasswordToken;
+                var resetLink = 'http://' + conf.baseUrl + ':' + conf.listenPort + '#/main/user/reset/'+ token + '/' + user.email;
 
                 //TODO: This is all temporary hackish. When we have email configured
                 //properly, all this will be stuffed within that email instead :)
@@ -376,8 +427,56 @@ exports.resetToken = function(request, response, next) {
         });
     } else {
         response.statusCode = 404;
-        response.json({error: 'Missing email.'});
+        return response.json({"title": "error", "message": "Missing email", "status": "fail"});
     }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Route to reset password with reset token                                  //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON updated account                                     //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url DELETE /users                                                        //
+///////////////////////////////////////////////////////////////////////////////
+exports.resetPassword = function(request, response, next) {
+    'use strict';
+    if(!request.params.token && !request.body.password) {
+        response.statusCode = 401;
+        return response.json({"title": "error", "message": "Unauthorized", "status": "fail"});
+    }
+    Account.findOne({resetPasswordToken: request.params.token, resetPasswordExpires: { $gt: Date.now() }})
+    .exec(function(error, user) {
+        if (error) {
+            response.statusCode = 500;
+            return next(error);
+        }
+        if(!user) {
+            response.statusCode = 404;
+            return response.json({"title": "error", "message": "Password reset token is invalid or has expired", "status": "fail"});
+        } else {
+            user.setPassword(request.body.password, function(error) {
+                if (error) {
+                    response.statusCode = 500;
+                    return response.json({"title": "error", "message": "Cannot save password", "status": "fail"});
+                }
+                user.resetPasswordToken = undefined;
+                user.resetPasswordExpires = undefined;
+                user.save(function(error, user) {
+                    if (error || !user) {
+                        response.statusCode = 500;
+                        return response.json({"title": "error", "message": "Cannot save user", "status": "fail"});
+                    }
+                    response.statusCode = 201;
+                    return response.json(user);
+                });
+            });
+        }
+    });
 };
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -7,6 +7,7 @@
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
 // @date         : 6 Oct 2013                                                //
+// @license:     : MIT                                                       //
 // ------------------------------------------------------------------------- //
 //                                                                           //
 // Copyright 2013~2014 Benjamin Maggi <benjaminmaggi@gmail.com>              //
@@ -122,6 +123,8 @@ if (!Digestor.options.toObject) {
     Digestor.options.toObject = {};
 }
 Digestor.options.toObject.transform = function (document, ret, options) {
+    'use strict';
+
     delete ret.__v;
     return ret;
 };
@@ -136,6 +139,8 @@ if (!Digestor.options.toJSON) {
     Digestor.options.toJSON = {};
 }
 Digestor.options.toJSON.transform = function (document, ret, options) {
+    'use strict';
+
     delete ret.__v;
     return ret;
 };

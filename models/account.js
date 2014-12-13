@@ -7,6 +7,7 @@
 // @author       : Benjamin Maggi                                            //
 // @email        : benjaminmaggi@gmail.com                                   //
 // @date         : 6 Oct 2013                                                //
+// @license:     : MIT                                                       //
 // ------------------------------------------------------------------------- //
 //                                                                           //
 // Copyright 2013~2014 Benjamin Maggi <benjaminmaggi@gmail.com>              //
@@ -75,8 +76,8 @@ var Account = new Schema({
         token: { type: String, required: false}
     },
     //For reset we use a reset token with an expiry (which must be checked)
-    reset_token: {type: String},
-    reset_token_expires_millis: {type: Number}
+    resetPasswordToken: {type: String},
+    resetPasswordExpires: {type: Number}
 });
 
 // About password security read:
@@ -279,15 +280,15 @@ Account.statics.invalidateUserToken = function(email, cb) {
 Account.statics.generateResetToken = function(email, cb) {
     'use strict';
 
-    this.findUserByEmailOnly(email, function(err, user) {
-        if (err) {
-            cb(err, null);
+    this.findUserByEmailOnly(email, function(error, user) {
+        if (error) {
+            cb(error, null);
         } else if (user) {
             //Generate reset token and URL link; also, create expiry for reset token
-            user.reset_token = require('crypto').randomBytes(32).toString('hex');
+            user.resetPasswordToken = require('crypto').randomBytes(32).toString('hex');
             var now = new Date();
             var expires = new Date(now.getTime() + (config.resetTokenExpiresMinutes * 60 * 1000)).getTime();
-            user.reset_token_expires_millis = expires;
+            user.resetPasswordExpires = expires;
             user.save();
             cb(false, user);
         } else {

@@ -13,6 +13,10 @@ var environments = {
             github: {
                 clientId: "1b147fb22f603248b539",
                 clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+            },
+            sendgrid: {
+                api_user: process.env.SENDGRID_USER,
+                api_key: process.env.SENDGRID_KEY,
             }
         },
         email: {
@@ -63,6 +67,10 @@ var environments = {
             github: {
                 clientId: "1b147fb22f603248b539",
                 clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+            },
+            sendgrid: {
+                api_user: process.env.SENDGRID_USER,
+                api_key: process.env.SENDGRID_KEY,
             }
         },
         email: {
@@ -106,8 +114,12 @@ var environments = {
         sessionSecret: process.env.SECRET,
         oAuthServices: {
             github: {
-                clientId: "1b147fb22f603248b539",
-                clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+                clientId: process.env.GITHUB_CLIENTID,
+                clientSecret: process.env.GITHUB_CLIENTSECRET
+            },
+            sendgrid: {
+                api_user: process.env.SENDGRID_USER,
+                api_key: process.env.SENDGRID_KEY,
             }
         },
         email: {
