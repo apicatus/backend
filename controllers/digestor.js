@@ -173,7 +173,8 @@ exports.create = function (request, response, next) {
 
     // Fail if digestor name is already created
     // TODO: Digestor names can be duplicated but domains cannot !
-    Digestor.findOne({name: request.body.name}, function(error, digestor) {
+    //{$and: [{_id: request.params.id}, {owners: request.user._id}]}
+    Digestor.findOne({$or: [{name: request.body.name}, {subdomain: request.body.subdomain}]}, function(error, digestor) {
         if (error || digestor) {
             response.statusCode = 409;
             return response.json({error: "existingDigestor", message: 'Digestor already exists'});
@@ -185,6 +186,7 @@ exports.create = function (request, response, next) {
             created: new Date(),
             lastUpdate: new Date(),
             lastAccess: new Date(),
+            color: request.body.color || '#'+Math.floor(Math.random()*16777215).toString(16),
             endpoints: request.body.endpoints || [],
             owners: [request.user._id]
         });
@@ -209,6 +211,32 @@ exports.create = function (request, response, next) {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+// Route to query if a Digestor can be created                               //
+//                                                                           //
+// @param {Object} request                                                   //
+// @param {Object} response                                                  //
+// @param {Object} next                                                      //
+// @return {Object} JSON updated document                                    //
+//                                                                           //
+// @api public                                                               //
+//                                                                           //
+// @url PUT /digestors/:id                                                   //
+///////////////////////////////////////////////////////////////////////////////
+exports.canCreateOrUpdate = function(request, response, next) {
+    'use strict';
+    Digestor.findOne({$or: [{name: request.body.name}, {subdomain: request.body.subdomain}]})
+    .exec(function(error, digestor) {
+        if (error || digestor) {
+            response.statusCode = 409;
+            return response.json({error: "existingDigestor", message: 'Digestor already exists'});
+        } else {
+            response.statusCode = 200;
+            return response.json({"title": "sucess", "message": "Can create", "status": "ok"});
+        }
+    });
+};
+
+///////////////////////////////////////////////////////////////////////////////
 // Route to update a Digestor                                                //
 //                                                                           //
 // @param {Object} request                                                   //
@@ -223,7 +251,9 @@ exports.create = function (request, response, next) {
 exports.updateOne = function (request, response, next) {
     'use strict';
 
-    delete request.body._id;
+    delete request.body._id; // Cant change subdomain id
+    delete request.body.subdomain // Cant change digestor subdomain
+
     Digestor.findOneAndUpdate({$and: [{_id: request.params.id}, {owners: request.user._id}]}, request.body)
     .exec(function (error, digestor) {
         if (error) {

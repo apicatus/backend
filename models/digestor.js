@@ -103,6 +103,7 @@ var Digestor = new Schema({
     lastAccess: { type: Date, default: Date.now },
     enabled: { type: Boolean, default: true, required: false },
     public: { type: Boolean, default: false, required: false },
+    color: { type: String, default: false, required: false, match: /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i },
     endpoints: [ Endpoints ],
     hits: { type: Number, default: 0, required: false },
     owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }],
@@ -145,4 +146,17 @@ Digestor.options.toJSON.transform = function (document, ret, options) {
     return ret;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Validators                                                                //
+///////////////////////////////////////////////////////////////////////////////
+function colorValidator (v) {
+    if (v.indexOf('#') == 0) {
+        if (v.length == 7) {  // #f0f0f0
+            return true;
+        } else if (v.length == 4) {  // #fff
+            return true;
+        }
+    }
+    return COLORS.indexOf(v) > -1;
+};
 module.exports = mongoose.model('Digestor', Digestor);

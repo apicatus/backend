@@ -584,6 +584,11 @@ exports.agentStatsByDate = function (request, response, next) {
                                 field: "responseHeaders.content-length"
                             }
                         },
+                        "time_percentiles": {
+                            "percentiles": {
+                                field: "time"
+                            }
+                        },
                         "time_statistics": {
                             "extended_stats": {
                                 field: "time"
@@ -799,6 +804,11 @@ exports.transfer2Statistics = function (request, response, next) {
                         "transfer_statistics": {
                             "extended_stats": {
                                 field: "responseHeaders.content-length"
+                            }
+                        },
+                        "time_percentiles": {
+                            "percentiles": {
+                                field: "time"
                             }
                         },
                         "time_statistics": {
