@@ -3,7 +3,8 @@ var gulp = require('gulp')
     , jshint = require('gulp-jshint')
     , stylish = require('jshint-stylish')
     , mocha = require('gulp-mocha')
-    , nodemon = require('gulp-nodemon');
+    , nodemon = require('gulp-nodemon')
+    , prompt = require('gulp-prompt');
 
 
 // Lint Task
@@ -29,14 +30,34 @@ gulp.task('default', ['lint', 'watch', 'develop']);
 gulp.task('test', ['lint', 'mocha']);
 // Develop Taks
 gulp.task('develop', function () {
-    nodemon({
+    // Query stuff that we need before start
+    gulp.src('')
+    .pipe(prompt.prompt([{
+        type: 'input',
+        name: 'user',
+        message: 'SendGrid User'
+    },
+    {
+        type: 'password',
+        name: 'password',
+        message: 'SendGrid Key'
+    }], function(response){
+        monitor(response.user, response.password);
+    }));
+    function monitor(user, password) {
+        nodemon({
             script: 'app.js',
             ext: 'js',
             ignore: ['ignored.js'],
-            env: { 'NODE_ENV': 'development' }
+            env: {
+                'NODE_ENV': 'development',
+                'SENDGRID_USER': user,
+                'SENDGRID_KEY': password
+            }
         })
         .on('change', ['lint'])
         .on('restart', function () {
             console.log('restarted!')
         });
+    }
 });

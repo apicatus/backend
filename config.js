@@ -12,7 +12,7 @@ var environments = {
         oAuthServices: {
             github: {
                 clientId: "1b147fb22f603248b539",
-                clientSecret: "d388480af4a706862f25b9fa493356fac09f7cee"
+                clientSecret: "a326b2f318defb7910639ea0a10c735246a24672"
             },
             sendgrid: {
                 api_user: process.env.SENDGRID_USER,
@@ -101,8 +101,8 @@ var environments = {
         mongoUrl: {
             hostname: "paulo.mongohq.com",
             port: 10026,
-            username: "admin",
-            password: "admin",
+            username: process.env.MONGO_USER,
+            password: process.env.MONGO_PASS,
             name: "",
             db: "apicatus"
         }

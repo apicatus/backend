@@ -43,11 +43,11 @@ var conf = require('../config'),
 ///////////////////////////////////////////////////////////////////////////////
 // create reusable transport method (opens pool of SMTP connections)         //
 ///////////////////////////////////////////////////////////////////////////////
-var smtpTransport = nodemailer.createTransport("SMTP",{
-    service: "Gmail",
+var smtpTransport = nodemailer.createTransport({
+    service: "SendGrid",
     auth: {
-        user: conf.email.user,
-        pass: conf.email.password
+        user: conf.oAuthServices.sendgrid.api_user,
+        pass: conf.oAuthServices.sendgrid.api_key
     }
 });
 
@@ -59,20 +59,23 @@ exports.sendTemplate = function(message, template, subject, recipients) {
         to: recipients.join(','), // list of receivers
         subject: subject, // Subject line
         text: message, // plaintext body
-        html: template // html body
+        //html: template // html body
     };
+    console.log("u:", conf.oAuthServices.sendgrid.api_user, " p: ", conf.oAuthServices.sendgrid.api_key);
     // send mail with defined transport object
     smtpTransport.sendMail(options, function(error, response) {
-        if(error){
+        if(error) {
             console.log(error);
-        }else{
+        } else {
             console.log("Message sent: " + response.message);
         }
-        // if you don't want to use this transport object anymore, uncomment following line
-        //smtpTransport.close(); // shut down the connection pool, no more messages
     });
 };
 
-
+exports.closeTransport = function() {
+    // if you don't want to use this transport object anymore, uncomment following line
+    // shut down the connection pool, no more messages
+    return smtpTransport.close();
+};
 
 

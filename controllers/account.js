@@ -40,22 +40,21 @@ var conf = require('../config'),
     mongoose = require('mongoose'),
     passport = require('passport'),
     extend = require('util')._extend,
-    Mailer = require('../services/mailer')/*,
+    Mailer = require('../services/mailer'),
     GitHubStrategy = require('passport-github').Strategy,
-    GitHubApi = require("github")*/;
+    GitHubApi = require("github");
 
 // Load model
 var account_schema = require('../models/account'),
     Account = mongoose.model('Account', account_schema);
 
-/*var github = new GitHubApi({
+var github = new GitHubApi({
     // required
     version: "3.0.0",
     // optional
     debug: true,
     timeout: 5000
 });
-*/
 
 ///////////////////////////////////////////////////////////////////////////////
 // passport session setup & strategy                                         //
@@ -411,7 +410,7 @@ exports.resetToken = function(request, response, next) {
                 return response.json({"title": "error", "message": "No user with that email found", "status": "fail"});
             } else {
                 var token = user.resetPasswordToken;
-                var resetLink = 'http://' + conf.baseUrl + ':' + conf.listenPort + '#/main/user/reset/'+ token + '/' + user.email;
+                var resetLink = 'http://' + conf.baseUrl + ':' + conf.listenPort + '/#/main/user/reset/'+ token + '/' + user.email;
 
                 //TODO: This is all temporary hackish. When we have email configured
                 //properly, all this will be stuffed within that email instead :)
@@ -485,54 +484,46 @@ exports.resetPassword = function(request, response, next) {
 // credentials (in this case, an accessToken, refreshToken, and GitHub       //
 // profile), and invoke a callback with a user object.                       //
 ///////////////////////////////////////////////////////////////////////////////
-
-/*passport.use(new GitHubStrategy({
+passport.use(new GitHubStrategy({
         clientID: conf.oAuthServices.github.clientId,
         clientSecret: conf.oAuthServices.github.clientSecret,
-        callbackURL: "http://miapi.com:8080/auth/github/callback",
+        callbackURL: 'http://' + conf.baseUrl + ':' + conf.listenPort + '/auth/github/callback',
+        //callbackURL: "http://apicat.us/auth/github/callback",
         scope: ['user']
     },
     function(accessToken, refreshToken, profile, done) {
         'use strict';
 
-        console.log("token: ", accessToken);
         // OAuth2
         github.authenticate({
             type: "oauth",
             token: accessToken
         });
-        github.user.getEmails({}, function(err, res) {
-            console.log("email from github:", JSON.stringify(res[0]));
+        github.user.getEmails({}, function(error, emails) {
+            console.log("email from github:", JSON.stringify(emails));
+            // Get Primary Address
+            var primary = emails.filter(function(email){
+                return email.primary;
+            })[0];
 
-        var user = {
-            username: profile.username,
-            email: res[0],
-            avatar: profile._json.avatar_url,
-            company: profile._json.company,
-            country: profile._json.location,
-            oAuth: {
-                token: accessToken
-            }
-        };
-        console.log("user: ", user);
+            var user = {
+                username: profile.username,
+                email: primary.email,
+                avatar: profile._json.avatar_url,
+                company: profile._json.company,
+                country: profile._json.location,
+                oAuth: {
+                    token: accessToken
+                }
+            };
             Account.findOrCreate({ email: user.email }, user, function (error, user) {
                 return done(error, user);
             });
         });
-
-
-        // asynchronous verification, for effect...
-        //process.nextTick(function () {
-            // To keep the example simple, the user's GitHub profile is returned to
-            // represent the logged-in user.  In a typical application, you would want
-            // to associate the GitHub account with a user record in your database,
-            // and return that user instead.
-            //return done(null, profile);
-        //});
     }
-));*/
+));
 
-/*
+
 exports.githubAuth = function(request, response, next) {
     'use strict';
     passport.authenticate('github', function(request, response, next) {
@@ -540,6 +531,7 @@ exports.githubAuth = function(request, response, next) {
         // function will not be called.
     })(request, response, next);
 };
+
 exports.githubAuthCallback = function(request, response, next) {
     'use strict';
 
@@ -549,14 +541,14 @@ exports.githubAuthCallback = function(request, response, next) {
             return next(error);
         }
         if (user) {
-            console.log("githubAuthCallback user:", JSON.stringify(request.user, null, 4));
-            //console.log("github user:", JSON.stringify(user, null, 4));
-            Account.createUserToken(user.email, function(error, token) {
-                if (error || !token) {
+            //console.log("githubAuthCallback user:", JSON.stringify(request.user, null, 4));
+            Account.createUserToken(user.email, function(error, user) {
+                if (error || !user) {
                     response.statusCode = 500;
                     response.json({error: 'Issue generating token'});
                 } else {
-                    response.json(user);
+                    response.cookie('token', user.token.token, { maxAge: 900000, httpOnly: false, domain: 'apicat.us'});
+                    response.redirect('http://app.' + conf.baseUrl + ':' + conf.listenPort);
                 }
             });
         } else {
@@ -565,5 +557,6 @@ exports.githubAuthCallback = function(request, response, next) {
         }
     })(request, response, next);
 };
-*/
+
+
 

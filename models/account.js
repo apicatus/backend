@@ -89,7 +89,7 @@ Account.plugin(passportLocalMongoose, {
     keylen: 512         // specifies the length in byte of the generated key
 });
 
-/*Account.statics.findOrCreate = function(conditions, doc, options, callback) {
+Account.statics.findOrCreate = function(conditions, doc, options, callback) {
     'use strict';
 
     if (arguments.length < 4) {
@@ -132,7 +132,7 @@ Account.plugin(passportLocalMongoose, {
             });
         }
     });
-};*/
+};
 
 Account.statics.encode = function(data) {
     'use strict';

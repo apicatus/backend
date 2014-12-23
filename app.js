@@ -261,12 +261,25 @@ app.route('/logs')
 app.route('/logs/:entity/:id')
     .delete(ensureAuthenticated, LogsCtl.delete);
 
+
 ///////////////////////////////////////////////////////////////////////////////
-// User CRUD Methods & Servi                                                 //
+// Use passport.authenticate() as route middleware to authenticate the       //
+// request.                                                                  //
+// The first step in GitHub authentication will involve redirecting          //
+// the user to github.com.                                                   //
+// After authorization, GitHubwill redirect the user                         //
+// back to this application at /auth/github/callback                         //
 ///////////////////////////////////////////////////////////////////////////////
+
+app.get('/auth/github', AccountCtl.githubAuth);
+app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
+// Regular user sign on sign off
 app.post('/user/signin', AccountCtl.signIn);
 app.get('/user/signout', ensureAuthenticated, AccountCtl.signOut);
 
+///////////////////////////////////////////////////////////////////////////////
+// User CRUD Methods & Servi                                                 //
+///////////////////////////////////////////////////////////////////////////////
 app.route('/user')
     .post(AccountCtl.create)
     .get(ensureAuthenticated, AccountCtl.read);
@@ -283,18 +296,6 @@ app.post('/user/changepassword', AccountCtl.changePassword);
 ///////////////////////////////////////////////////////////////////////////////
 // Analytics                                                                 //
 ///////////////////////////////////////////////////////////////////////////////
-/*
-app.get('/metrics', ensureAuthenticated, Analytics.metrics);
-app.get('/geo', ensureAuthenticated, Analytics.geo);
-app.get('/languages', ensureAuthenticated, Analytics.languages);
-app.get('/platform', ensureAuthenticated, Analytics.platform);
-app.get('/contentlength', ensureAuthenticated, Analytics.contentLength);
-app.get('/contentlength2', ensureAuthenticated, Analytics.contentLength2);
-app.get('/performance', ensureAuthenticated, Analytics.performance);
-app.get('/metrics/:id', ensureAuthenticated, Analytics.metricsNew);
-app.get('/summary', ensureAuthenticated, Analytics.summaryStats);
-app.get('/getBytesTransferred/:id', ensureAuthenticated, Analytics.getBytesTransferred);
-*/
 
 // route middleware to validate :entity
 app.param('entity', function(request, response, next, entity) {
@@ -337,34 +338,8 @@ app.get('/throttle', Throttle.throttle, function(req, res) {
 app.get('/echo', function(req, res) {
     res.json({message: "hello throttle"});
 });
-///////////////////////////////////////////////////////////////////////////////
-//   Use passport.authenticate() as route middleware to authenticate the
-//   request.  The first step in GitHub authentication will involve redirecting
-//   the user to github.com.  After authorization, GitHubwill redirect the user
-//   back to this application at /auth/github/callback
-///////////////////////////////////////////////////////////////////////////////
-
-//app.get('/auth/github', AccountCtl.githubAuth);
-//app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
 
 
-//app.get('/auth/github', passport.authenticate('github'), function(request, response) {
-//    'use strict';
-    // The request will be redirected to GitHub for authentication, so this
-    // function will not be called.
-//});
-
-// GET /auth/github/callback
-//   Use passport.authenticate() as route middleware to authenticate the
-//   request.  If authentication fails, the user will be redirected back to the
-//   login page.  Otherwise, the primary route function function will be called,
-//   which, in this example, will redirect the user to the home page.
-//app.get('/auth/github/callback', passport.authenticate('github', { session: false }), function(request, response) {
-//    'use strict';
-
-//    response.json(request.user);
-//});
-//app.get('/auth/github/callback', AccountCtl.githubCallback);
 ///////////////////////////////////////////////////////////////////////////////
 // API Model Importer service                                                //
 ///////////////////////////////////////////////////////////////////////////////

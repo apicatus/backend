@@ -96,11 +96,7 @@ exports.pathMatch = function(route, path) {
 exports.digestRequest = function(request, response, next) {
     'use strict';
 
-    console.log("-------------------------------------------------------------------------------");
-    console.log("digest", request.url);
-    console.log("-------------------------------------------------------------------------------");
     if (!request.headers.host) {
-        console.log("skip digest");
         return next();
     }
     // create our subdomain regex
@@ -109,7 +105,6 @@ exports.digestRequest = function(request, response, next) {
     var subdomainString = regex.exec(request.headers.host);
     // if there is no subdomain, return
     if(!subdomainString) {
-        console.log("skip local: ", JSON.stringify(subdomainString, null, 4));
         return next();
     }
     // create an array of subdomains
@@ -118,8 +113,11 @@ exports.digestRequest = function(request, response, next) {
     if(subdomainArray[0].toLowerCase() == 'api') {
         return next();
     }
-
-    console.log("subdomainArray", subdomainArray[0].toLowerCase());
+    // Skip blacklist
+    var blacklist = ['api', 'app', 'status', 'landing'];
+    if(blacklist.indexOf(subdomainArray[0].toLowerCase()) > -1) {
+        return next();
+    }
 
     var url_parts = url.parse(request.url, true, true);
     var pathname = url_parts.pathname;
