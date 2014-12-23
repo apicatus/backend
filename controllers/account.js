@@ -41,8 +41,11 @@ var conf = require('../config'),
     passport = require('passport'),
     extend = require('util')._extend,
     Mailer = require('../services/mailer'),
-    GitHubStrategy = require('passport-github').Strategy,
     GitHubApi = require("github");
+
+// Auth Strategies
+var GitHubStrategy = require('passport-github').Strategy,
+    GoogleStrategy = require('passport-google').Strategy;
 
 // Load model
 var account_schema = require('../models/account'),
@@ -487,7 +490,7 @@ exports.resetPassword = function(request, response, next) {
 passport.use(new GitHubStrategy({
         clientID: conf.oAuthServices.github.clientId,
         clientSecret: conf.oAuthServices.github.clientSecret,
-        callbackURL: 'http://' + conf.baseUrl + ':' + conf.listenPort + '/auth/github/callback',
+        callbackURL: 'http://app.' + conf.baseUrl + ':' + conf.listenPort + '/auth/github/callback',
         //callbackURL: "http://apicat.us/auth/github/callback",
         scope: ['user']
     },
@@ -523,7 +526,6 @@ passport.use(new GitHubStrategy({
     }
 ));
 
-
 exports.githubAuth = function(request, response, next) {
     'use strict';
     passport.authenticate('github', function(request, response, next) {
@@ -558,5 +560,57 @@ exports.githubAuthCallback = function(request, response, next) {
     })(request, response, next);
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Use the GoogleStrategy within Passport.                                   //
+// Strategies in Passport require a `verify` function, which accept          //
+// credentials (in this case, an accessToken, refreshToken, and GitHub       //
+// profile), and invoke a callback with a user object.                       //
+///////////////////////////////////////////////////////////////////////////////
+passport.use(new GoogleStrategy({
+        returnURL: 'http://app.' + conf.baseUrl + ':' + conf.listenPort + '/auth/google/return',
+        realm: 'http://app.' + conf.baseUrl
+    },
+    function(identifier, profile, done) {
+        console.log("google profile:", JSON.stringify(profile));
+        /*
+        Account.findOrCreate({ openId: identifier }, function(error, user) {
+            done(error, user);
+        });
+        */
+    }
+));
 
+exports.googleAuth = function(request, response, next) {
+    'use strict';
+    passport.authenticate('google', function(request, response, next) {
+        // The request will be redirected to GitHub for authentication, so this
+        // function will not be called.
+    })(request, response, next);
+};
+
+exports.googleAuthCallback = function(request, response, next) {
+    'use strict';
+
+    passport.authenticate('google', { session: false }, function(error, user) {
+        if (error) {
+            response.statusCode = 500;
+            return next(error);
+        }
+        if (user) {
+            //console.log("githubAuthCallback user:", JSON.stringify(request.user, null, 4));
+            Account.createUserToken(user.email, function(error, user) {
+                if (error || !user) {
+                    response.statusCode = 500;
+                    response.json({error: 'Issue generating token'});
+                } else {
+                    response.cookie('token', user.token.token, { maxAge: 900000, httpOnly: false, domain: 'apicat.us'});
+                    response.redirect('http://app.' + conf.baseUrl + ':' + conf.listenPort);
+                }
+            });
+        } else {
+            response.statusCode = 401;
+            return response.json({error: 'unauthorized'});
+        }
+    })(request, response, next);
+};
 

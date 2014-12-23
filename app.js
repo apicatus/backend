@@ -273,6 +273,9 @@ app.route('/logs/:entity/:id')
 
 app.get('/auth/github', AccountCtl.githubAuth);
 app.get('/auth/github/callback', AccountCtl.githubAuthCallback);
+
+app.get('/auth/google', AccountCtl.googleAuth);
+app.get('/auth/google/return', AccountCtl.googleAuthCallback);
 // Regular user sign on sign off
 app.post('/user/signin', AccountCtl.signIn);
 app.get('/user/signout', ensureAuthenticated, AccountCtl.signOut);
