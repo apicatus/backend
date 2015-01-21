@@ -179,6 +179,13 @@ exports.create = function (request, response, next) {
             response.statusCode = 409;
             return response.json({error: "existingDigestor", message: 'Digestor already exists'});
         }
+        /*var oauth = new Oauth({
+            version: '1.0',
+            type: 'two-legged',
+            apiKey: '1234',
+            apiSecret: '1234',
+            signature: 'HMAC-SHA1'
+        });*/
         digestor = new Digestor({
             name: request.body.name,
             synopsis: request.body.synopsis,
@@ -188,7 +195,16 @@ exports.create = function (request, response, next) {
             lastAccess: new Date(),
             color: request.body.color || '#'+Math.floor(Math.random()*16777215).toString(16),
             endpoints: request.body.endpoints || [],
-            owners: [request.user._id]
+            owners: [request.user._id],
+            authorizations: [{
+                oauth: [{
+                    version: '1.0',
+                    type: 'two-legged',
+                    apiKey: '449974f10fd540eda1e727724448c557',
+                    apiSecret: '3e81498f955548e9ad8346872694559f',
+                    signature: 'HMAC-SHA1'
+                }]
+            }]
         });
         digestor.save(onSave);
         function onSave(error, digestor) {

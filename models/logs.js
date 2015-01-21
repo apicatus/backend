@@ -50,7 +50,7 @@ var Logs = new Schema({
     date: { type: Date, default: Date.now },
     time: { type: Number, default: 0, required: true },
     method: { type: Schema.Types.ObjectId, ref: 'Methods' },
-    digestor: { type: Schema.Types.ObjectId, ref: 'Methods' },
+    digestor: { type: Schema.Types.ObjectId, ref: 'Digestor' },
     geo: { type: Object },
 });
 

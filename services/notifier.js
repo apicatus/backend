@@ -83,7 +83,6 @@ exports.setup = function(server) {
     });
     io.use(function(socket, next) {
         var token = socket.handshake.query.token;
-        console.log('handshakeData:', socket.handshake.query.token);
         if(token) {
             Account.verify(token, function(error, expired, decoded) {
                 if(error) {

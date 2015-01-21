@@ -38,12 +38,45 @@
 var mongoose = require('mongoose'),
     Schema = mongoose.Schema;
 
-var Authorizations = new Schema({
+var Basic = new Schema({
+    apiUsername: { type: String, required: true },
+    apiPassword: { type: String, required: true }
 });
-/*var Responses = new Schema({
-    code: {type: Number, required: false},
-    message: { type: String, required: false }
-});*/
+var Oauth = new Schema({
+    version: { type: String, required: true, default: '1.0', enum: [ '1.0', '2.0' ] },
+    type: { type: String, required: false, default: 'authorization-code', trim: true },
+    baseUri: { type: String, required: false, trim: true },
+    authorizeUri: { type: String, required: false, trim: true },
+    accessTokenUri: { type: String, required: false, trim: true },
+    requestUri: { type: String, required: false, trim: true },
+    accessUri: { type: String, required: false, trim: true },
+    token: {
+        param: { type: String, required: false, default: 'oauth_token', trim: true },
+        location: { type: String, required: false, default: 'query', trim: true, enum: [ 'query', 'header' ] }
+    },
+    apiKey: { type: String, required: true },
+    apiSecret: { type: String, required: true },
+    signature: { type: String, required: false, default: 'HMAC-SHA1', trim: true, enum: [ 'PLAINTEXT', 'HMAC-SHA1' , 'RSA-SHA1' ] }
+});
+var Key = new Schema({
+    apiKey: { type: String, required: true },
+    param: { type: String, required: false, default: 'key', trim: true },
+    location: { type: String, required: false, default: 'query', trim: true, enum: [ 'query', 'header' ] },
+    signature: {
+        type: { type: String, required: false, default: 'signed_sha256', trim: true, enum: [ 'signed_md5', 'signed_sha256' ] },
+        param: { type: String, required: false, trim: true },
+        digest: { type: String, required: false, default: 'hex', trim: true, enum: [ 'hex', 'base64', 'binary'] },
+        location: { type: String, required: false, default: 'query', trim: true, enum: [ 'query', 'header' ] }
+    }
+});
+///////////////////////////////////////////////////////////////////////////////
+// Autentication type schemas                                                //
+///////////////////////////////////////////////////////////////////////////////
+var Authorization = new Schema({
+    basicAuth: [ Basic ],
+    oauth: [ Oauth ],
+    key: [ Key ]
+});
 var Parameters = new Schema({
     name: { type: String, required: true, trim: true },
     required: { type: Boolean, default: true, required: false },
@@ -63,7 +96,7 @@ var Methods = new Schema({
     synopsis: { type: String, required: false },
     URI: { type: String, required: true, trim: true },
     consumes: { type: String, required: false },
-    method: { type: String, required: true, trim: true },
+    method: { type: String, required: true, trim: true, uppercase: true },
     proxy: {
         URI:  { type: String, required: false, trim: true },
         enabled: { type: Boolean, required: false, default: false }
@@ -81,7 +114,7 @@ var Methods = new Schema({
         contentType: { type: String, required: false }
     },
     assertions: [ Assertions ],
-    authorizations: [Authorizations]
+    authorizations: { type: Schema.Types.ObjectId, ref: 'Authorization' }
 });
 var Endpoints = new Schema({
     name: { type: String, required: false, default: "Endpoint name", trim: true },
@@ -89,29 +122,62 @@ var Endpoints = new Schema({
     methods: [ Methods ]
 });
 var Digestor = new Schema({
+    // Name of the API Digestor
     name: { type: String, required: true, trim: true },
+    // Description
     synopsis: { type: String, required: false, default: "API description", trim: false },
-    type: { type: String, required: false, default: "REST" },
+    // Type of API
+    type: { type: String, required: false, default: "REST", enum: [ 'REST', 'SOAP', 'STREAM' ] },
+    // Version
     version: { type: String, required: false },
+    // Full path prefix prepended to all method URIs
+    publicPath: { type: String, required: false, trim: true },
+    // Full path prefix prepended to all method URIs for OAuth protected method resources.
+    privatePath: { type: String, required: false, trim: true },
+    // Subdomain
     subdomain: { type: String, required: false, trim: false, lowercase: true },
-    protocol: { type: String, required: false, default: "http" },
-    baseURL: { type: String, required: false },
-    allowCrossDomain: { type: Boolean, default: false, required: false },
+    // Protocol
+    protocol: { type: String, required: false, default: "http", enum: [ 'http', 'https' ] },
+    // Allow cross domain requests
+    allowCrossDomain: { type: Boolean, default: true, required: false },
+    // API Logging
     logging: { type: Boolean, default: true, required: false },
+    // Creation Date
     created: { type: Date, default: Date.now },
+    // Last modification date
     lastUpdate: { type: Date, default: Date.now },
+    // Last time used
     lastAccess: { type: Date, default: Date.now },
+    // Enabled
     enabled: { type: Boolean, default: true, required: false },
+    // Visible to all users
     public: { type: Boolean, default: false, required: false },
-    color: { type: String, default: false, required: false, match: /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i },
+    // Color
+    color: { type: String, default: false, required: false, uppercase: true, match: /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i },
+    // Endpoint resource array
     endpoints: [ Endpoints ],
+    // API Call counter
     hits: { type: Number, default: 0, required: false },
+    // List of owners
     owners: [{ type: Schema.Types.ObjectId, ref: 'Account' }],
+    // Learning mode
     learn: { type: Boolean, default: false, required: false },
+    // Global API Proxy
     proxy: {
         URI:  { type: String, required: false, trim: true },
         enabled: { type: Boolean, required: false, default: false }
-    }
+    },
+    request: {
+        headers: { type: Object, required: false },
+        query: { type: Object, required: false },
+        contentType: { type: String, required: false }
+    },
+    response: {
+        headers: { type: Object, required: false },
+        contentType: { type: String, required: false }
+    },
+    // Array of authorization methods
+    authorizations: [ Authorization ]
 });
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -149,14 +215,16 @@ Digestor.options.toJSON.transform = function (document, ret, options) {
 ///////////////////////////////////////////////////////////////////////////////
 // Validators                                                                //
 ///////////////////////////////////////////////////////////////////////////////
-function colorValidator (v) {
-    if (v.indexOf('#') == 0) {
-        if (v.length == 7) {  // #f0f0f0
+function colorValidator (color) {
+    'use strict';
+
+    if (color.indexOf('#') == 0) {
+        if (color.length == 7) {  // #f0f0f0
             return true;
-        } else if (v.length == 4) {  // #fff
+        } else if (color.length == 4) {  // #fff
             return true;
         }
     }
-    return COLORS.indexOf(v) > -1;
+    return COLORS.indexOf(color) > -1;
 };
 module.exports = mongoose.model('Digestor', Digestor);

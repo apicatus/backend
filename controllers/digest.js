@@ -36,21 +36,26 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 var DigestorMdl = require('../models/digestor'),
+    OAuth = require('oauth').OAuth,
+    OAuth2 = require('oauth/lib/oauth2').OAuth2,
     LogsCtl = require('../controllers/logs'),
     routex = require('../services/routex'),
     url = require('url'),
     config = require('../config'),
+    query = require('querystring'),
     http = require('http'),
     https = require('https'),
-    zlib = require('zlib')
+    zlib = require('zlib'),
+    crypto = require('crypto'),
     jsonValidator = require('tv4');
 
 
 ///////////////////////////////////////////////////////////////////////////////
 // APICATUS Digestors logic                                                  //
 ///////////////////////////////////////////////////////////////////////////////
-function _escapeRegExp(str) {
+function escapeRegExp(str) {
     'use strict';
+
     return str.replace(/[-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 }
 
@@ -64,7 +69,7 @@ function subdomainRegex(baseUrl) {
     'use strict';
 
     var regex;
-    baseUrl = _escapeRegExp(baseUrl);
+    baseUrl = escapeRegExp(baseUrl);
     regex = new RegExp('((?!www)\\b[-\\w\\.]+)\\.' + baseUrl + '(?::)?(?:\\d+)?');
     return regex;
 }
@@ -80,9 +85,27 @@ exports.pathMatch = function(route, path) {
     'use strict';
 
     var pattern = routex.newPattern(route);
-
     return pattern.match(path);
 };
+
+//
+// Check for nested value within object.
+// http://stackoverflow.com/questions/6491463/accessing-nested-javascript-objects-with-string-key
+//
+function objectByString(obj, str) {
+    str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
+    str = str.replace(/^\./, '');           // strip a leading dot
+    var a = str.split('.');
+    while (a.length) {
+        var n = a.shift();
+        if (obj && n in obj) {
+            obj = obj[n];
+        } else {
+            return;
+        }
+    }
+    return obj;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Digest API request                                                        //
@@ -119,11 +142,11 @@ exports.digestRequest = function(request, response, next) {
         return next();
     }
 
+    // Parse incoming url request
     var url_parts = url.parse(request.url, true, true);
     var pathname = url_parts.pathname;
 
-    // Lookup
-    //DigestorMdl.findOne({'endpoints.methods.URI':  pathname}, 'endpoints.methods')
+    // Find Digestor matching request subdomain
     DigestorMdl.findOne({subdomain: subdomainArray[0].toLowerCase()})
     .exec(function(error, digestor) {
         if (error) {
@@ -134,6 +157,7 @@ exports.digestRequest = function(request, response, next) {
             response.statusCode = 404;
             return response.json({ error: 'digestor not found' });
         }
+        // Digest this API method
         digest(digestor, pathname, request.method);
     });
 
@@ -144,7 +168,7 @@ exports.digestRequest = function(request, response, next) {
         ///////////////////////////////////////////////////////////////////////
         // Match request protocol                                            //
         ///////////////////////////////////////////////////////////////////////
-        var protocol = http;
+        var protocol = options.protocol.match('https') ? https : http;
 
         if(options.protocol.match('https')) {
             protocol = https;
@@ -152,6 +176,7 @@ exports.digestRequest = function(request, response, next) {
             options.port = options.port || 443;
         }
 
+        console.log('proxyRequest', JSON.stringify(options, null, 4))
         var pipedRequest = protocol.request(options, function(pipedResponse) {
             // Set status
             response.statusCode = pipedResponse.statusCode;
@@ -186,7 +211,8 @@ exports.digestRequest = function(request, response, next) {
             response.json({'title': 'error', 'message': error.message, code: error.code, 'status': 'fail'});
         });
         // Post or Put data
-        if(options.method.toLowerCase() == 'post' || options.method.toLowerCase() == 'put') {
+        //if(options.method.toLowerCase() == 'post' || options.method.toLowerCase() == 'put') {
+        if (['POST','PUT'].indexOf(options.method) !== -1 && !options.headers['Content-Length']) {
             pipedRequest.write(post_data);
         }
         pipedRequest.end();
@@ -215,7 +241,7 @@ exports.digestRequest = function(request, response, next) {
 
         var options = {
             hostname: proxyUrlParts.hostname,
-            port: proxyUrlParts.port | 80,
+            port: proxyUrlParts.port || 80,
             path: proxyUrlParts.path + url_parts.search,
             method: method.method.toUpperCase(),
             headers: request.headers
@@ -232,6 +258,7 @@ exports.digestRequest = function(request, response, next) {
         } else {
             protocol = http;
         }
+        console.log('proxyMethod', JSON.stringify(options, null, 4))
         //console.log("proxying request to:", method.proxy.URI, "\noptions:", JSON.stringify(options, null, 4));
 
         var pipedRequest = protocol.request(options, function(pipedResponse) {
@@ -328,12 +355,11 @@ exports.digestRequest = function(request, response, next) {
         });
     }
     ///////////////////////////////////////////////////////////////////////////
-    // Handle Request                                                        //
+    // Handle Request by sending stored response                             //
     ///////////////////////////////////////////////////////////////////////////
     var handleRequest = function(method, request, response, log) {
-        var validatorOutput = null;
         ///////////////////////////////////////////////////////////////
-        // Set custom headers                                        //
+        // Set custom Response headers                               //
         ///////////////////////////////////////////////////////////////
         if(method.response.headers && method.response.headers.length > 0) {
             method.response.headers.forEach(function(header){
@@ -343,26 +369,26 @@ exports.digestRequest = function(request, response, next) {
             });
         }
 
-        ///////////////////////////////////////////////////////////////
-        // Validate input data                                       //
-        ///////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        // Validate JSON Body                                                //
+        ///////////////////////////////////////////////////////////////////////
         if(method.response.validator.enabled && Object.keys(request.body).length > 0 && method.response.contentType == 'application/json') {
-            validatorOutput = jsonValidator.validateMultiple(request.body, JSON.parse(method.response.validator.schema));
+            var validatorOutput = jsonValidator.validateMultiple(request.body, JSON.parse(method.response.validator.schema));
             if(!validatorOutput.valid) {
                 response.statusCode = 400;
                 response.json(validatorOutput);
                 return next();
             }
         }
-        ///////////////////////////////////////////////////////////////
-        // Set content-type & status code default use if nessesary   //
-        ///////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        // Set content-type & status code default use if nessesary           //
+        ///////////////////////////////////////////////////////////////////////
         response.set('content-type', method.response.contentType || 'application/json');
         response.statusCode = method.response.statusCode || 200;
 
-        ///////////////////////////////////////////////////////////////
-        // Send data as raw buffer contet-type will take care        //
-        ///////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        // Send data as raw buffer contet-type will take care                //
+        ///////////////////////////////////////////////////////////////////////
         if(method.response.body) {
             response.send(new Buffer(method.response.body));
         } else {
@@ -372,6 +398,173 @@ exports.digestRequest = function(request, response, next) {
     };
 
     ///////////////////////////////////////////////////////////////////////////
+    // Proxy source (Digestor or Methods)                                    //
+    ///////////////////////////////////////////////////////////////////////////
+    var proxySource = function(source, request, response, next, log) {
+        var proxyUrlParts = url.parse(source.proxy.URI, true, true);
+
+        //var protocol = options.protocol.match('https') ? https : http;
+        var options = {
+            protocol: proxyUrlParts.protocol,
+            hostname: proxyUrlParts.hostname, // To support url.parse() hostname is preferred over host;
+            host: source.proxy.URI,
+            port: proxyUrlParts.port ? proxyUrlParts.port : proxyUrlParts.protocol.match('https') ? 443 : 80,
+            //path: (source.publicPath) ? source.publicPath + url_parts.pathname : url_parts.pathname,
+            path: proxyUrlParts.path + url_parts.search,
+            method: request.method,
+            headers: request.headers
+        };
+        // http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html 14.24
+        options.headers.host = proxyUrlParts.hostname;
+
+        ///////////////////////////////////////////////////////////////////////
+        // Set custom Request headers                                        //
+        ///////////////////////////////////////////////////////////////////////
+        if(objectByString(source, 'request.headers')) {
+            source.request.headers.forEach(function(header){
+                if(header.name && header.value) {
+                    options.headers[header.name] = header.value;
+                }
+            });
+        }
+        ///////////////////////////////////////////////////////////////////////
+        // Set custom Response headers                                       //
+        ///////////////////////////////////////////////////////////////////////
+        if(objectByString(source, 'response.headers')) {
+            source.response.headers.forEach(function(header){
+                if(header.name && header.value) {
+                    response.set(header.name, header.value);
+                }
+            });
+        }
+
+        console.log('proxySource', JSON.stringify(options, null, 4))
+        if(source.authorizations && objectByString(source.authorizations[0], 'oauth[0].version') == '1.0') {
+            console.log('proxy oauth 1.0')
+            var doAuth = function(options, auth) {
+                var oAuth = new OAuth(
+                    null,
+                    null,
+                    auth.apiKey || null,
+                    auth.apiSecret || null,
+                    auth.version,
+                    null,
+                    auth.signature
+                );
+                console.log('query', JSON.stringify(request.query, null, 4));
+                var querystring = query.stringify(request.query);
+                var resource = options.protocol + '//' + options.hostname + options.path;
+                if(querystring.length > 0) {
+                    resource += '?' + querystring
+                }
+
+                console.log('resource', JSON.stringify(resource, null, 4));
+
+                var authCallback = function(error, data, res) {
+                    if (error) {
+                        console.log('error', JSON.stringify(error, null, 4))
+                        //response.statusCode = error.statusCode;
+                        response.statusCode = 500;
+                        return response.json(error);
+
+                    } else {
+                        var responseContentType = res.headers['content-type'];
+
+                        if (/application\/javascript/.test(responseContentType)
+                            || /text\/javascript/.test(responseContentType)
+                            || /application\/json/.test(responseContentType)) {
+                            var body = JSON.parse(data);
+                        }
+                    }
+                    return response.send(new Buffer(data));
+                };
+                oAuth.getProtectedResource(
+                    resource,
+                    options.method,
+                    null,
+                    null,
+                    authCallback
+                );
+            }
+            console.log("auth: ", objectByString(source.authorizations[0], 'oauth[0]'));
+            doAuth(options, objectByString(source.authorizations[0], 'oauth[0]'));
+        } else if(source.authorizations && objectByString(source.authorizations[0], 'oauth[0].version') == '2.0') {
+            console.log('proxy oauth 2.0')
+            var doAuth = function(options, auth) {
+                var oAuth = new OAuth(
+                    auth.requestUri,
+                    auth.accessUri,
+                    auth.apiKey || null,
+                    auth.apiSecret || null,
+                    auth.version,
+                    null,
+                    auth.signature
+                );
+                // Get the request token
+                oAuth.getOAuthRequestToken(function(err, oauth_token, oauth_token_secret, results ){
+                    console.log('==>Get the request token');
+                    console.log(arguments);
+                });
+
+
+                // Get the authorized access_token with the un-authorized one.
+                oAuth.getOAuthAccessToken('requestkey', 'requestsecret', function (err, oauth_token, oauth_token_secret, results){
+                    console.log('==>Get the access token');
+                    console.log(arguments);
+                });
+                console.log('query', JSON.stringify(request.query, null, 4));
+                var querystring = query.stringify(request.query);
+                var resource = options.protocol + '//' + options.hostname + options.path;
+                if(querystring.length > 0) {
+                    resource += '?' + querystring
+                }
+
+                console.log('resource', JSON.stringify(resource, null, 4));
+
+                var authCallback = function(error, data, res) {
+                    if (error) {
+                        console.log('error', JSON.stringify(error, null, 4))
+                        //response.statusCode = error.statusCode;
+                        response.statusCode = 500;
+                        return response.json(error);
+
+                    } else {
+                        var responseContentType = res.headers['content-type'];
+
+                        if (/application\/javascript/.test(responseContentType)
+                            || /text\/javascript/.test(responseContentType)
+                            || /application\/json/.test(responseContentType)) {
+                            var body = JSON.parse(data);
+                        }
+                    }
+                    return response.send(new Buffer(data));
+                };
+                oAuth.getProtectedResource(
+                    resource,
+                    options.method,
+                    null,
+                    null,
+                    authCallback
+                );
+            }
+        } else if(source.authorizations && objectByString(source.authorizations[0], 'key[0].apiKey')) {
+            console.log('proxy signature key')
+            if(objectByString(source.authorizations[0], 'key[0].location') == 'header') {
+                options.headers[objectByString(source.authorizations[0], 'key[0].param')] = objectByString(source.authorizations[0], 'key[0].apiKey');
+                return proxyRequest(options, request, response, log);
+            } else {
+                options.path += '?' + objectByString(source.authorizations[0], 'key[0].param') + '=' + objectByString(source.authorizations[0], 'key[0].apiKey');
+                return proxyRequest(options, request, response, log);
+            }
+        } else if(source.authorizations && objectByString(source.authorizations[0], 'auth[0].basicAuth')) {
+            // Basic Auth support
+            options.headers['Authorization'] = 'Basic ' + new Buffer(objectByString(source.authorizations[0], 'auth[0].apiUsername') + ':' + 'auth[0].apiPassword').toString('base64');
+            console.log(options.headers['Authorization'] );
+        } else {
+            return proxyRequest(options, request, response, log);
+        }
+    };
+    ///////////////////////////////////////////////////////////////////////////
     // Proxy Digestor                                                        //
     ///////////////////////////////////////////////////////////////////////////
     var proxyDigestor = function(digestor, request, response, log) {
@@ -379,12 +572,61 @@ exports.digestRequest = function(request, response, next) {
 
         var options = {
             protocol: proxyUrlParts.protocol,
-            hostname: proxyUrlParts.hostname,
+            hostname: proxyUrlParts.hostname, // To support url.parse() hostname is preferred over host;
+            host: digestor.proxy.URI,
             port: proxyUrlParts.port | 80,
-            path: url_parts.pathname,
+            path: (digestor.publicPath) ? digestor.publicPath + url_parts.pathname : url_parts.pathname,
             method: request.method,
             headers: request.headers
         };
+        // http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html 14.24
+        options.headers.host = proxyUrlParts.hostname;
+
+        ///////////////////////////////////////////////////////////////////////
+        // Set custom Request headers                                        //
+        ///////////////////////////////////////////////////////////////////////
+        //if(digestor.request && digestor.request.headers && digestor.request.headers.length > 0) {
+        if(objectByString(digestor, 'request.headers')) {
+            digestor.request.headers.forEach(function(header){
+                if(header.name && header.value) {
+                    options.headers[header.name] = header.value;
+                }
+            });
+        }
+        ///////////////////////////////////////////////////////////////
+        // Set custom Response headers                               //
+        ///////////////////////////////////////////////////////////////
+        //if(digestor.response && digestor.response.headers && digestor.response.headers.length > 0) {
+        if(objectByString(digestor, 'response.headers')) {
+            digestor.response.headers.forEach(function(header){
+                if(header.name && header.value) {
+                    response.set(header.name, header.value);
+                }
+            });
+        }
+
+        /*
+        options = {
+            protocol: 'http:',
+            hostname: 'walmartlabs.api.mashery.com',
+            port: 80,
+            path: '/v1/vod',
+            method: 'GET'
+        }
+        console.log('request.headers', JSON.stringify(request.headers, null, 4))
+        var callApi = http.request(options, function(result) {
+            result.setEncoding('utf8');
+            result.on('data', function(data){
+                console.log('data')
+                response.write(new Buffer(data));
+            })
+            .on('end', function() {
+                response.end();
+            });
+
+        })
+        callApi.end();
+        //console.log('proxyDigestor', JSON.stringify(options, null, 4))
 
         /*http.get("http://qa-plattform.securityscorecard.io/js/main.js", function(file) {
             console.log("RRRR: ", file.statusCode);
@@ -409,7 +651,126 @@ exports.digestRequest = function(request, response, next) {
         rqq.end();
         */
         //return response.json(options);
-        return proxyRequest(options, request, response, log);
+        console.log('proxyDigestor', JSON.stringify(options, null, 4))
+        if(digestor.authorizations && objectByString(digestor.authorizations[0], 'oauth[0].version') == '1.0') {
+            console.log('proxy oauth 1.0')
+            var doAuth = function(options, auth) {
+                var oAuth = new OAuth(
+                    null,
+                    null,
+                    auth.apiKey || null,
+                    auth.apiSecret || null,
+                    auth.version,
+                    null,
+                    auth.signature
+                );
+                console.log('query', JSON.stringify(request.query, null, 4));
+                var querystring = query.stringify(request.query);
+                var resource = options.protocol + '//' + options.hostname + options.path;
+                if(querystring.length > 0) {
+                    resource += '?' + querystring
+                }
+
+                console.log('resource', JSON.stringify(resource, null, 4));
+
+                var authCallback = function(error, data, res) {
+                    if (error) {
+                        console.log('error', JSON.stringify(error, null, 4))
+                        //response.statusCode = error.statusCode;
+                        response.statusCode = 500;
+                        return response.json(error);
+
+                    } else {
+                        var responseContentType = res.headers['content-type'];
+
+                        if (/application\/javascript/.test(responseContentType)
+                            || /text\/javascript/.test(responseContentType)
+                            || /application\/json/.test(responseContentType)) {
+                            var body = JSON.parse(data);
+                        }
+                    }
+                    return response.send(new Buffer(data));
+                };
+                oAuth.getProtectedResource(
+                    resource,
+                    options.method,
+                    null,
+                    null,
+                    authCallback
+                );
+            }
+            doAuth(options, objectByString(digestor.authorizations[0], 'oauth[0]'));
+        } else if(digestor.authorizations && objectByString(digestor.authorizations[0], 'oauth[0].version') == '2.0') {
+            console.log('proxy oauth 2.0')
+            var doAuth = function(options, auth) {
+                var oAuth = new OAuth(
+                    auth.requestUri,
+                    auth.accessUri,
+                    auth.apiKey || null,
+                    auth.apiSecret || null,
+                    auth.version,
+                    null,
+                    auth.signature
+                );
+                // Get the request token
+                oAuth.getOAuthRequestToken(function(err, oauth_token, oauth_token_secret, results ){
+                    console.log('==>Get the request token');
+                    console.log(arguments);
+                });
+
+
+                // Get the authorized access_token with the un-authorized one.
+                oAuth.getOAuthAccessToken('requestkey', 'requestsecret', function (err, oauth_token, oauth_token_secret, results){
+                    console.log('==>Get the access token');
+                    console.log(arguments);
+                });
+                console.log('query', JSON.stringify(request.query, null, 4));
+                var querystring = query.stringify(request.query);
+                var resource = options.protocol + '//' + options.hostname + options.path;
+                if(querystring.length > 0) {
+                    resource += '?' + querystring
+                }
+
+                console.log('resource', JSON.stringify(resource, null, 4));
+
+                var authCallback = function(error, data, res) {
+                    if (error) {
+                        console.log('error', JSON.stringify(error, null, 4))
+                        //response.statusCode = error.statusCode;
+                        response.statusCode = 500;
+                        return response.json(error);
+
+                    } else {
+                        var responseContentType = res.headers['content-type'];
+
+                        if (/application\/javascript/.test(responseContentType)
+                            || /text\/javascript/.test(responseContentType)
+                            || /application\/json/.test(responseContentType)) {
+                            var body = JSON.parse(data);
+                        }
+                    }
+                    return response.send(new Buffer(data));
+                };
+                oAuth.getProtectedResource(
+                    resource,
+                    options.method,
+                    null,
+                    null,
+                    authCallback
+                );
+            }
+        } else if(digestor.authorizations && objectByString(digestor.authorizations[0], 'key[0].apiKey')) {
+            console.log('proxy signature key')
+            if(objectByString(digestor.authorizations[0], 'key[0].location') == 'header') {
+                options.headers[objectByString(digestor.authorizations[0], 'key[0].param')] = objectByString(digestor.authorizations[0], 'key[0].apiKey');
+                return proxyRequest(options, request, response, log);
+            } else {
+                options.path += '?' + objectByString(digestor.authorizations[0], 'key[0].param') + '=' + objectByString(digestor.authorizations[0], 'key[0].apiKey');
+                return proxyRequest(options, request, response, log);
+            }
+        } else {
+            return proxyRequest(options, request, response, log);
+        }
     };
     ///////////////////////////////////////////////////////////////////////////
     // Learn Request                                                         //
@@ -483,32 +844,38 @@ exports.digestRequest = function(request, response, next) {
         }
         return null;
     };
+    ///////////////////////////////////////////////////////////////////////////
+    // Digest API Requests                                                   //
+    ///////////////////////////////////////////////////////////////////////////
     var digest = function(digestor, route, httpMethod) {
 
         var method = getMethodByRoute(digestor, route, httpMethod);
         if(method) {
-            ///////////////////////////////////////////////////////////////
-            // Log request                                               //
-            ///////////////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////
+            // Log request                                                   //
+            ///////////////////////////////////////////////////////////////////
             if(digestor.logging) {
                 var log = LogsCtl.create(request, response, next);
                 log.digestor = digestor._id;
                 log.method = method._id;
             }
-            ///////////////////////////////////////////////////////////////
-            // If proxy is enabled and valid then pipe request           //
-            ///////////////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////
+            // If proxy is enabled and valid then pipe request               //
+            ///////////////////////////////////////////////////////////////////
             if(digestor.proxy && digestor.proxy.enabled && digestor.proxy.URI) {
-                proxyDigestor(digestor, request, response, log);
+                console.log('proxy all')
+                //proxySource(digestor, request, response, next, log);
+                //proxyDigestor(digestor, request, response, log);
             } else if(method.proxy && method.proxy.enabled && method.proxy.URI) {
-                proxyMethod(method, request, response, log);
+                proxySource(method, request, response, next, log);
+                //proxyMethod(method, request, response, log);
             } else {
                 handleRequest(method, request, response, log);
             }
         } else if (digestor.learn) {
-            ///////////////////////////////////////////////////////////////
-            // Learn methods from requests                               //
-            ///////////////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////
+            // Learn methods from requests                                   //
+            ///////////////////////////////////////////////////////////////////
             var endpoint = digestor.endpoints.filter(function(endpoint) {
                 return endpoint.name == 'Learned methods';
             });
